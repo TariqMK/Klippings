@@ -19,6 +19,7 @@ TEXT_HEIGHT = IMAGE_HEIGHT - 300
 FONT_SIZE = 40
 WRAP_WIDTH = 43
 LINE_SPACING = 15
+SENTENCE_TOLERANCE_LINES = 3
 ATTRIBUTION_FONT_SIZE = 27
 ATTRIBUTION_BOTTOM = 80
 WEBP_QUALITY = 85
@@ -71,9 +72,13 @@ def fits(lines, font):
     return text_box(lines, font)[3] <= TEXT_HEIGHT
 
 
-def next_page_end(text, font):
-    """Find where the next image should end, at a sentence if one ends late enough"""
-    word_ends = [match.end() for match in re.finditer(r'\S+', text)]
+def word_ends_in(text):
+    return [match.end() for match in re.finditer(r'\S+', text)]
+
+
+def fullest_page_end(text, font):
+    """Find where an image would end if it held as much of the text as it can"""
+    word_ends = word_ends_in(text)
 
     def text_up_to_fits(end):
         return fits(wrap_lines(text[:end]), font)
@@ -82,18 +87,46 @@ def next_page_end(text, font):
     if not text_up_to_fits(end):
         # Even the first word is too long for one image, so it has to be cut
         return most_that_fit(end, text_up_to_fits)
+    return end
 
-    sentence_ends = [match.end() for match in SENTENCE_END.finditer(text, 0, end + 1)]
-    late_enough = [position for position in sentence_ends if position >= end / 2]
-    return late_enough[-1] if late_enough else end
+
+def images_needed(text, font):
+    """Count the fewest images that can hold this text"""
+    count = 1
+    while not fits(wrap_lines(text), font):
+        text = text[fullest_page_end(text, font):].strip()
+        count += 1
+    return count
+
+
+def even_page_end(text, font, images_left):
+    """Find where the next image should end to share the text evenly across those left"""
+    target = -(-len(wrap_lines(text)) // images_left)
+
+    def line_count(end):
+        return len(wrap_lines(text[:end]))
+
+    def works(end):
+        return fits(wrap_lines(text[:end]), font) and images_needed(text[end:].strip(), font) <= images_left - 1
+
+    # A sentence ending close to an even share is the most natural place to stop
+    sentence_ends = [match.end() for match in SENTENCE_END.finditer(text)]
+    nearby = [end for end in sentence_ends if abs(line_count(end) - target) <= SENTENCE_TOLERANCE_LINES]
+    for end in sorted(nearby, key=lambda end: abs(line_count(end) - target)):
+        if works(end):
+            return end
+
+    word_ends = word_ends_in(text)
+    end = word_ends[most_that_fit(len(word_ends), lambda count: line_count(word_ends[count - 1]) <= target) - 1]
+    return end if works(end) else fullest_page_end(text, font)
 
 
 def layout_pages(text, font):
-    """Split one highlight's wrapped lines across as many images as it needs"""
+    """Share one highlight's wrapped lines evenly across the fewest images it needs"""
     pages = []
     remaining = text
-    while not fits(wrap_lines(remaining), font):
-        end = next_page_end(remaining, font)
+    for images_left in range(images_needed(text, font), 1, -1):
+        end = even_page_end(remaining, font, images_left)
         pages.append(wrap_lines(remaining[:end].strip()))
         remaining = remaining[end:].strip()
     pages.append(wrap_lines(remaining))

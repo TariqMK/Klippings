@@ -7,6 +7,9 @@ from klippings.images import (
     attribution_text,
     existing_image_folders,
     export_images,
+    fits,
+    fullest_page_end,
+    images_needed,
     layout_pages,
     list_fonts,
     wrap_lines,
@@ -68,6 +71,59 @@ def test_split_images_keep_every_word_and_end_on_sentences(tmp_path):
     assert len(pages) > 1
     assert " ".join(" ".join(lines) for lines in pages) == text
     assert all(" ".join(lines).endswith(".") for lines in pages)
+
+
+def test_just_over_one_image_is_shared_evenly():
+    font = ImageFont.truetype(FONT, 40)
+    # No sentence endings, so only evenness decides where it breaks
+    word = "word "
+    text = word.strip()
+    while fits(wrap_lines(text), font):
+        text += " " + word.strip()
+    pages = layout_pages(text, font)
+    assert len(pages) == 2
+    assert abs(len(pages[0]) - len(pages[1])) <= 1
+    assert " ".join(" ".join(lines) for lines in pages) == text
+
+
+def test_breaks_at_a_sentence_end_close_to_even():
+    font = ImageFont.truetype(FONT, 40)
+    filler = "word " * 90
+    text = (filler + "Ends here. " + filler + "word word word").strip()
+    pages = layout_pages(text, font)
+    assert len(pages) == 2
+    assert " ".join(pages[0]).endswith("Ends here.")
+
+
+def test_breaks_between_words_when_no_sentence_end_is_close():
+    font = ImageFont.truetype(FONT, 40)
+    text = ("Too early. " + "word " * 200).strip()
+    pages = layout_pages(text, font)
+    assert not " ".join(pages[0]).endswith("Too early.")
+    assert abs(len(pages[0]) - len(pages[1])) <= 1
+
+
+def test_even_sharing_never_adds_images_or_overflows():
+    font = ImageFont.truetype(FONT, 40)
+    for length in (1, 10, 18, 25, 40, 77, 130, 200):
+        text = " ".join(f"Sentence {i} has a few more words in it." for i in range(length))
+        pages = layout_pages(text, font)
+        assert len(pages) == images_needed(text, font)
+        assert all(fits(lines, font) for lines in pages)
+        assert " ".join(" ".join(lines) for lines in pages) == text
+
+
+def test_several_images_stay_close_in_length():
+    font = ImageFont.truetype(FONT, 40)
+    text = " ".join(f"Sentence {i} has a few more words in it." for i in range(120))
+    sizes = [len(lines) for lines in layout_pages(text, font)]
+    assert len(sizes) > 2
+    assert max(sizes) - min(sizes) <= 2 * 3
+
+
+def test_fullest_page_end_cuts_a_word_too_long_for_one_image():
+    font = ImageFont.truetype(FONT, 40)
+    assert 0 < fullest_page_end("x" * 2500, font) < 2500
 
 
 def test_lines_wrap_at_43_characters_and_keep_line_breaks():
