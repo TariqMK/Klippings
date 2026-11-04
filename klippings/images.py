@@ -22,6 +22,12 @@ LINE_SPACING = 15
 SENTENCE_TOLERANCE_LINES = 3
 ATTRIBUTION_FONT_SIZE = 27
 ATTRIBUTION_BOTTOM = 80
+TICK_WIDTH = 3
+TICK_HEIGHT = 40
+TICK_GAP = 16
+TICK_TOP = 80
+TICK_CURRENT_COLOR = '#8f8f8f'
+TICK_OTHER_COLOR = '#d4d4d4'
 WEBP_QUALITY = 85
 
 SENTENCE_END = re.compile(r'[.!?…]["\'”’)\]]*\s+')
@@ -138,9 +144,23 @@ def attribution_text(book_title, author):
     return f'{title} | {author}' if author else title
 
 
-def draw_image(font, attribution_font, lines, attribution):
+def draw_ticks(draw, part, total):
+    """Draw one fine tick per image at the top centre, with this image's tick darker"""
+    x = (IMAGE_WIDTH - (total * TICK_WIDTH + (total - 1) * TICK_GAP)) // 2
+    for tick in range(1, total + 1):
+        draw.rectangle(
+            (x, TICK_TOP, x + TICK_WIDTH - 1, TICK_TOP + TICK_HEIGHT - 1),
+            fill=TICK_CURRENT_COLOR if tick == part else TICK_OTHER_COLOR
+        )
+        x += TICK_WIDTH + TICK_GAP
+
+
+def draw_image(font, attribution_font, lines, attribution, part=1, total=1):
     image = Image.new('RGB', (IMAGE_WIDTH, IMAGE_HEIGHT), color='white')
     draw = ImageDraw.Draw(image)
+
+    if total > 1:
+        draw_ticks(draw, part, total)
 
     left, top, right, bottom = text_box(lines, font)
     position = ((IMAGE_WIDTH - (right - left)) / 2 - left, (IMAGE_HEIGHT - (bottom - top)) / 2 - top)
@@ -197,7 +217,7 @@ def export_images(books, output_dir, font_path, all_titles=None, should_cancel=N
             pages = layout_pages(text, font)
             for part, lines in enumerate(pages, start=1):
                 ending = f'_{part:02}' if len(pages) > 1 else ''
-                image = draw_image(font, attribution_font, lines, attribution)
+                image = draw_image(font, attribution_font, lines, attribution, part, len(pages))
                 image.save(os.path.join(folder, f'Highlight_{number:04}{ending}.webp'), format='WEBP', quality=WEBP_QUALITY)
                 image_count += 1
 

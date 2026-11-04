@@ -5,6 +5,7 @@ from PIL import Image, ImageFont
 from klippings.images import (
     DEFAULT_FONT,
     attribution_text,
+    draw_image,
     existing_image_folders,
     export_images,
     fits,
@@ -124,6 +125,35 @@ def test_several_images_stay_close_in_length():
 def test_fullest_page_end_cuts_a_word_too_long_for_one_image():
     font = ImageFont.truetype(FONT, 40)
     assert 0 < fullest_page_end("x" * 2500, font) < 2500
+
+
+def tick_colors(image, total):
+    """Read each tick's color from where it should be, centred at the top of the image"""
+    x = (image.width - (total * 3 + (total - 1) * 16)) // 2
+    return [image.getpixel((x + 19 * tick + 1, 100)) for tick in range(total)]
+
+
+def test_split_images_show_which_one_they_are_at_the_top_centre():
+    font = ImageFont.truetype(FONT, 40)
+    current, other = (0x8f, 0x8f, 0x8f), (0xd4, 0xd4, 0xd4)
+    for part, expected in ((1, [current, other, other]), (2, [other, current, other]), (3, [other, other, current])):
+        image = draw_image(font, font, ["text"], "Book | Author", part, 3)
+        assert tick_colors(image, 3) == expected
+
+
+def test_single_images_have_no_ticks():
+    font = ImageFont.truetype(FONT, 40)
+    image = draw_image(font, font, ["text"], "Book | Author")
+    assert image.crop((0, 0, image.width, 150)).getcolors() == [(image.width * 150, (255, 255, 255))]
+
+
+def test_ticks_stay_clear_of_a_full_image_of_text():
+    font = ImageFont.truetype(FONT, 40)
+    lines = wrap_lines(SENTENCE * 40)
+    while not fits(lines, font):
+        lines.pop()
+    plain = draw_image(font, font, lines, "Book | Author")
+    assert plain.crop((0, 0, plain.width, 120)).getcolors() == [(plain.width * 120, (255, 255, 255))]
 
 
 def test_lines_wrap_at_43_characters_and_keep_line_breaks():
