@@ -30,7 +30,9 @@ The option to output highlights with or without metadata is available, as illust
 
 User Interface:
 
-<img width="1354" height="1993" alt="image" src="https://github.com/user-attachments/assets/c407faa6-8d8d-44bb-bc28-085ef3dd92b9" />
+<p align="center">
+<img width="800" alt="Klippings user interface" src="assets/Screenshot - General.jpg" />
+</p>
 
 Standard Export (Sample):
 
