@@ -110,6 +110,15 @@ def test_bookmarks_and_notes_are_counted_and_do_not_leak():
     assert (stats["bookmark"], stats["note"], stats["highlight"]) == (1, 1, 1)
 
 
+def test_highlight_right_after_a_bookmark_keeps_its_title():
+    bookmark = entry("Book A (Auth A)", "Your Bookmark on page 5 | location 70", "")
+    # Bookmarks can have one blank line before the separator, or two
+    for bookmark_entry in (bookmark, bookmark.replace("\n\n\n", "\n\n")):
+        books, stats = parse_clippings(bookmark_entry + entry("Book B (Auth B)", MODERN, "right after a bookmark"))
+        assert books == {"Book B": [("right after a bookmark", "Auth B", "page 5", "70-71")]}
+        assert (stats["bookmark"], stats["highlight"]) == (1, 1)
+
+
 def test_older_metadata_formats():
     cases = {
         "Your Highlight at location 70-71": ("", "70-71"),

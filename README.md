@@ -20,7 +20,7 @@ Your original `My Clippings.txt` file is not amended in any way.
 
 The highlights contained within `My Clippings.txt` contain entries from all the sideloaded books one has read on the Kindle device. For long term flexibility this is both inefficient and prone to data corruption and loss, especially over time as the file size grows ever larger.
 
-Klippings takes `My Clippings.txt` as the input, scans it for all highlights, recognises if there are multiple books and then outputs a text file per book containing all related highlights.
+Klippings takes `My Clippings.txt` as the input, scans it for all highlights, recognises if there are multiple books and then outputs a text file per book containing all related highlights, a folder of quote images per book, or both.
 
 <img width="1101" height="219" alt="image" src="https://github.com/user-attachments/assets/c3a91832-15f2-44ee-b841-b6e987cfa3c4" />
 
@@ -66,6 +66,8 @@ klippings
 
 Enjoy!
 
+When run from source, the application shows the development version, `v0.0.0.dev0`. Only release builds show a real version number.
+
 To run the tests:
 
 ```
@@ -82,14 +84,17 @@ Run the **Release** workflow from the repository's Actions tab, on `main`, and c
 - **Release type:** `draft` or `public`
 - **Version increment:** `patch`, `minor` or `major`
 
-The new version is worked out from the highest existing tag or release, including drafts. It is then shown in the application and used to tag the release.
+The new version is worked out from the highest existing tag or release, including drafts. It is then shown in the application and used to tag the release. The workflow doesn't commit anything to `main`, so your local copy stays level with GitHub after a release.
+
+To add release notes, edit the release on GitHub. The workflow only adds a link to the full list of changes.
 
 ---
 
 ## Notes
 
+- Once you open a clippings file, the export options, save folder and Export button appear in a panel to the right of your highlights
 - The new text files are saved directly in the folder you choose, with no subfolder added
-- You can choose or drop several clippings files at once, such as those from different Kindles. Their books are combined, and a highlight found in more than one file appears once for each. Highlights are put in the order they were taken, by date and then location, or by location alone if a book has a date that can't be read
+- You can choose or drop several clippings files at once, such as those from different Kindles. Their books are combined, and every highlight is kept, so one found in more than one file appears once for each. Highlights are put in the order they were taken, by date and then location, or by location alone if a book has a date that can't be read
 - By default, each highlight keeps its page and location, saved as `Book Title.txt`. Turn off **Include page & location** to save your highlights cleanly for PKMS systems like Obsidian, as `Book Title (simple).txt`. The preview shows which version you'll get
 - When the application is run and the highlights have been extracted, a summary of books and highlights processed will be displayed in the application itself
 - Bookmarks, notes, article clips, empty highlights and clipping limit messages are left out of the export, and the application shows how many of each were skipped
