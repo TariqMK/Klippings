@@ -95,6 +95,7 @@ The new version is worked out from the highest existing tag or release, includin
 - When the application is run and the highlights have been extracted, a summary of books and highlights processed will be displayed in the application itself
 - Bookmarks, notes, article clips, empty highlights, clipping limit messages and exact duplicates are left out of the export, and the application shows how many of each were skipped
 - Running the application again overwrites the existing files for the selected books
+- Keyboard shortcuts: `Ctrl/Cmd+O` chooses a file, `Ctrl/Cmd+Return` exports, the arrow keys move through books, `Space` includes or leaves out the current book, and `Esc` cancels an export
 
 ---
 

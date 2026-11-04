@@ -9,7 +9,7 @@ description = "Parse and simplify your Kindle highlights"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "customtkinter",
+    "customtkinter>=6,<7",
     "tkinterdnd2",
 ]
 
