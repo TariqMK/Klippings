@@ -17,6 +17,7 @@ import json
 
 from klippings._version import __version__
 from klippings.exporter import export_books, existing_files
+from klippings.images import DEFAULT_FONT, existing_image_folders, export_images, list_fonts
 from klippings.parser import parse_clipping_files
 
 UI_POLL_INTERVAL_MS = 50
@@ -248,7 +249,11 @@ class KindleHighlightsGUI:
 
         self.file_paths = []
         self.output_path_var = tk.StringVar(value=self.last_output_dir)
+        self.create_text_var = tk.BooleanVar(value=True)
         self.with_metadata_var = tk.BooleanVar(value=True)
+        self.fonts = list_fonts()
+        self.create_images_var = tk.BooleanVar(value=False)
+        self.image_font_var = tk.StringVar(value=next(iter(self.fonts), DEFAULT_FONT))
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
@@ -455,7 +460,7 @@ class KindleHighlightsGUI:
 
     def show_metadata_in_preview(self):
         """Make the reading view match what the export will contain, without losing the reader's place"""
-        with_metadata = self.with_metadata_var.get()
+        with_metadata = self.create_text_var.get() and self.with_metadata_var.get()
         text = self.reading_view._textbox
         text.tag_configure("highlight_place", elide=not with_metadata)
         text.tag_configure("highlight_gap", elide=with_metadata)
@@ -473,7 +478,7 @@ class KindleHighlightsGUI:
         bar.grid_columnconfigure(2, weight=1)
 
         save_to = ctk.CTkLabel(bar, text="Save to", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY)
-        save_to.grid(row=0, column=0, padx=(24, 4), pady=16)
+        save_to.grid(row=0, column=0, padx=(24, 4), pady=(16, 8))
 
         self.output_browse_button = ctk.CTkButton(
             bar,
@@ -491,24 +496,6 @@ class KindleHighlightsGUI:
         self.output_path_var.trace_add("write", lambda *args: self.refresh_output_button())
         self.output_path_var.trace_add("write", lambda *args: self.update_export_state())
         self.refresh_output_button()
-
-        self.with_metadata_var.trace_add("write", lambda *args: self.show_metadata_in_preview())
-        self.with_metadata_check = ctk.CTkCheckBox(
-            bar,
-            text="Include page & location",
-            variable=self.with_metadata_var,
-            font=ui_font(13),
-            text_color=COLOR_TEXT,
-            checkbox_width=18,
-            checkbox_height=18,
-            corner_radius=4,
-            border_width=1,
-            fg_color=COLOR_ACCENT,
-            hover_color=COLOR_ACCENT_HOVER,
-            border_color=COLOR_CONTROL_BORDER,
-            checkmark_color=COLOR_ON_ACCENT
-        )
-        self.with_metadata_check.grid(row=0, column=3, padx=(8, 24))
 
         self.process_button = ctk.CTkButton(
             bar,
@@ -540,6 +527,80 @@ class KindleHighlightsGUI:
         )
         self.cancel_button.grid(row=0, column=5, padx=(0, 24))
         self.cancel_button.grid_remove()
+
+        self.build_export_options(bar)
+
+    def option_checkbox(self, master, text, variable):
+        return ctk.CTkCheckBox(
+            master,
+            text=text,
+            variable=variable,
+            font=ui_font(13),
+            text_color=COLOR_TEXT,
+            checkbox_width=18,
+            checkbox_height=18,
+            corner_radius=4,
+            border_width=1,
+            fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER,
+            border_color=COLOR_CONTROL_BORDER,
+            checkmark_color=COLOR_ON_ACCENT
+        )
+
+    def build_export_options(self, bar):
+        """Add the choice of what to export, with each one's details hidden until it's wanted"""
+        options = ctk.CTkFrame(bar, fg_color="transparent")
+        options.grid(row=1, column=0, columnspan=6, padx=24, pady=(0, 14), sticky="w")
+
+        self.create_text_check = self.option_checkbox(options, "Text files", self.create_text_var)
+        self.create_text_check.grid(row=0, column=0)
+        self.with_metadata_check = self.option_checkbox(options, "Include page & location", self.with_metadata_var)
+        self.with_metadata_check.grid(row=0, column=1, padx=(16, 0))
+
+        self.create_images_check = self.option_checkbox(options, "Quote images", self.create_images_var)
+        self.create_images_check.grid(row=0, column=2, padx=(40, 0))
+        if not self.fonts:
+            self.create_images_check.configure(text="Quote images (no fonts found)", state="disabled")
+
+        self.image_font_label = ctk.CTkLabel(options, text="Font", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY)
+        self.image_font_label.grid(row=0, column=3, padx=(16, 8))
+        self.image_font_menu = ctk.CTkOptionMenu(
+            options,
+            variable=self.image_font_var,
+            values=list(self.fonts) or [DEFAULT_FONT],
+            font=ui_font(13),
+            dropdown_font=ui_font(13),
+            height=32,
+            width=130,
+            corner_radius=8,
+            fg_color=COLOR_RAISED,
+            button_color=COLOR_RAISED,
+            button_hover_color=COLOR_HAIRLINE,
+            text_color=COLOR_TEXT,
+            dropdown_fg_color=COLOR_RAISED,
+            dropdown_hover_color=COLOR_HAIRLINE,
+            dropdown_text_color=COLOR_TEXT
+        )
+        self.image_font_menu.grid(row=0, column=4)
+
+        for variable in (self.create_text_var, self.with_metadata_var, self.create_images_var):
+            variable.trace_add("write", lambda *args: self.refresh_export_options())
+        self.refresh_export_options()
+
+    def refresh_export_options(self):
+        """Only show the details of what's being exported, and keep the preview in step"""
+        details = (
+            (self.with_metadata_check, self.create_text_var),
+            (self.image_font_label, self.create_images_var),
+            (self.image_font_menu, self.create_images_var)
+        )
+        for widget, variable in details:
+            if variable.get():
+                widget.grid()
+            else:
+                widget.grid_remove()
+        self.show_metadata_in_preview()
+        self.update_export_state()
 
     def build_status_bar(self):
         bar = ctk.CTkFrame(self.root, height=36, corner_radius=0, fg_color=COLOR_SIDEBAR)
@@ -862,6 +923,8 @@ class KindleHighlightsGUI:
         enabled = False
         if not selected_count:
             label = "Export"
+        elif not (self.create_text_var.get() or self.create_images_var.get()):
+            label = "Choose What to Export"
         elif not output_dir:
             label = "Choose a Folder"
         else:
@@ -970,6 +1033,14 @@ class KindleHighlightsGUI:
             )
             return False
 
+        if not (self.create_text_var.get() or self.create_images_var.get()):
+            messagebox.showwarning(
+                "Nothing to Export",
+                "Turn on Text files, Quote images, or both.",
+                parent=self.root
+            )
+            return False
+
         output_dir = self.output_path_var.get()
         if not output_dir or not os.path.isdir(output_dir):
             messagebox.showerror(
@@ -983,15 +1054,26 @@ class KindleHighlightsGUI:
 
     def confirm_replacing_files(self, options):
         """Ask before overwriting files already in the chosen folder"""
-        replaced = existing_files(
-            options['books'], options['output_dir'], options['with_metadata'], options['all_titles']
-        )
+        replaced = []
+        if options['create_text']:
+            replaced = existing_files(
+                options['books'], options['output_dir'], options['with_metadata'], options['all_titles']
+            )
+        message = f"This folder already has {format_count(len(replaced), 'file')} with the same name."
+        if options['create_images']:
+            image_folders = existing_image_folders(options['books'], options['output_dir'], options['all_titles'])
+            replaced += image_folders
+            if image_folders:
+                message = (
+                    f"This folder already has {format_count(len(replaced), 'item')} with the same name. "
+                    "The quote images in any listed book folders will be removed and made again."
+                )
         if not replaced:
             return True
 
         return messagebox.askyesno(
             "Replace Existing Files?",
-            f"This folder already has {format_count(len(replaced), 'file')} with the same name. Replacing can't be undone.\n\n" + list_file_names(replaced),
+            f"{message} Replacing can't be undone.\n\n" + list_file_names(replaced),
             icon="warning",
             default="no",
             parent=self.root
@@ -1008,7 +1090,10 @@ class KindleHighlightsGUI:
 
         # The worker thread can't read Tk variables, so it gets a snapshot of them
         options = {
+            'create_text': self.create_text_var.get(),
             'with_metadata': self.with_metadata_var.get(),
+            'create_images': self.create_images_var.get(),
+            'image_font': self.fonts.get(self.image_font_var.get()),
             'output_dir': self.output_path_var.get(),
             'clippings_name': ", ".join(os.path.basename(path) for path in self.file_paths),
             'books': {title: data for title, data in self.book_data.items() if self.book_vars[title].get()},
@@ -1034,6 +1119,7 @@ class KindleHighlightsGUI:
         """Export the selected books"""
         output_dir = options['output_dir']
         book_count = 0
+        image_count = 0
         outcome = 'success'
         error_message = ''
 
@@ -1041,17 +1127,32 @@ class KindleHighlightsGUI:
             self.log(f"\nReading: {options['clippings_name']}")
             self.log(f"Exporting {len(options['books'])} of {len(options['all_titles'])} books")
 
-            results = export_books(
-                options['books'],
-                output_dir,
-                options['with_metadata'],
-                options['all_titles'],
-                lambda: self.cancel_requested
-            )
-            book_count = len(results)
+            if options['create_text']:
+                results = export_books(
+                    options['books'],
+                    output_dir,
+                    options['with_metadata'],
+                    options['all_titles'],
+                    lambda: self.cancel_requested
+                )
+                book_count = len(results)
 
-            for title, count, _ in results:
-                self.log(f"  {title}: {format_count(count, 'highlight')}")
+                for title, count, _ in results:
+                    self.log(f"  {title}: {format_count(count, 'highlight')}")
+
+            if options['create_images'] and not self.cancel_requested:
+                self.log("\nCreating quote images")
+                image_results = export_images(
+                    options['books'],
+                    output_dir,
+                    options['image_font'],
+                    options['all_titles'],
+                    lambda: self.cancel_requested,
+                    lambda title: self.run_on_ui(lambda: self.set_status(f"Creating images for {title}…"))
+                )
+                for title, count, _ in image_results:
+                    image_count += count
+                    self.log(f"  {title}: {format_count(count, 'image')}")
 
             if self.cancel_requested:
                 self.log("\nCancelled. Files already saved were kept")
@@ -1065,7 +1166,10 @@ class KindleHighlightsGUI:
             self.log(f"\nExport failed: {error_message}")
 
         finally:
-            summary = f"Saved {format_count(book_count, 'book')} to {shorten_path(output_dir)}"
+            saved = [format_count(book_count, 'book')] if book_count else []
+            if image_count:
+                saved.append(format_count(image_count, 'image'))
+            summary = f"Saved {' and '.join(saved) or 'nothing'} to {shorten_path(output_dir)}"
             self.run_on_ui(lambda: self.finish_processing(outcome, output_dir, error_message, summary))
 
     def finish_processing(self, outcome, output_dir, error_message, summary):

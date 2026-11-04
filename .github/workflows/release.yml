@@ -40,8 +40,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install pytest
-        run: python -m pip install "pytest>=7"
+      - name: Install test requirements
+        run: python -m pip install "pytest>=7" pillow
 
       - name: Run tests
         run: python -m pytest
@@ -127,6 +127,7 @@ jobs:
           --icon "assets/Klippings Logo.ico"
           --add-data "assets/Klippings Logo.ico:assets"
           --add-data "assets/Klippings Logo.png:assets"
+          --add-data "klippings/fonts:klippings/fonts"
           klippings/__main__.py
 
       - name: Package

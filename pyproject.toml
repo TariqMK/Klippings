@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "customtkinter>=6,<7",
+    "pillow",
     "tkinterdnd2",
 ]
 
@@ -21,6 +22,9 @@ klippings = "klippings.gui:main"
 
 [tool.setuptools]
 packages = ["klippings"]
+
+[tool.setuptools.package-data]
+klippings = ["fonts/*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "klippings._version.__version__" }

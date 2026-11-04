@@ -93,6 +93,8 @@ The new version is worked out from the highest existing tag or release, includin
 - By default, each highlight keeps its page and location, saved as `Book Title.txt`. Turn off **Include page & location** to save your highlights cleanly for PKMS systems like Obsidian, as `Book Title (simple).txt`. The preview shows which version you'll get
 - When the application is run and the highlights have been extracted, a summary of books and highlights processed will be displayed in the application itself
 - Bookmarks, notes, article clips, empty highlights and clipping limit messages are left out of the export, and the application shows how many of each were skipped
+- Turn on **Quote images** to save each selected book's highlights as images, in a folder named after the book. Turn off **Text files** if you only want the images. Every image is 1080x1350, with the text at one size and wrapped at 43 characters. A highlight too long for one image continues across several, like `Highlight_0004_01.webp` and `Highlight_0004_02.webp`
+- To add a font for quote images, put a `.ttf` or `.otf` file in `klippings/fonts`. It's built into the app, so check its licence allows that
 - If a file with the same name is already in the folder, the application asks before replacing it
 - Keyboard shortcuts: `Ctrl/Cmd+O` chooses files, `Ctrl/Cmd+Return` exports, the arrow keys move through books, `Space` includes or leaves out the current book, and `Esc` cancels an export
 
