@@ -1,0 +1,192 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Release type
+        type: choice
+        required: true
+        default: draft
+        options:
+          - draft
+          - public
+      bump:
+        description: Version increment
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+# Queue runs so two releases can never pick the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: python -m pip install "pytest>=7"
+
+      - name: Run tests
+        run: python -m pytest
+
+  version:
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # Draft releases are only visible with write access.
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Work out next version
+        id: next
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          tag=$(
+            {
+              git tag --list
+              gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[].tag_name'
+            } | bash .github/scripts/next_version.sh "$BUMP"
+          )
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Building $tag as a $RELEASE_TYPE release ($BUMP)" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows-x64
+            mode: --onefile
+          - os: macos-latest
+            target: macos-arm64
+            mode: --onedir # PyInstaller is dropping --onefile for macOS app bundles.
+          - os: ubuntu-24.04
+            target: linux-x64
+            mode: --onefile
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Tk (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tk
+
+      - name: Confirm Apple Silicon (macOS)
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = arm64
+
+      - name: Add version to the app
+        shell: bash
+        run: echo "__version__ = \"${TAG#v}\"" > klippings/_version.py
+
+      - name: Install dependencies
+        run: python -m pip install . pyinstaller pillow
+
+      - name: Check Tk is available
+        run: python -c "import tkinter; print('Tk', tkinter.TkVersion)"
+
+      - name: Build
+        shell: bash
+        run: >
+          pyinstaller --noconfirm ${{ matrix.mode }} --windowed
+          --name Klippings --paths .
+          --collect-data customtkinter --collect-all tkinterdnd2
+          --icon "assets/Klippings Logo.ico"
+          --add-data "assets/Klippings Logo.ico:assets"
+          --add-data "assets/Klippings Logo.png:assets"
+          klippings/__main__.py
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir out
+          name="Klippings-$TAG-$TARGET"
+          case "$RUNNER_OS" in
+            Windows) cp dist/Klippings.exe "out/$name.exe" ;;
+            macOS) ditto -c -k --keepParent dist/Klippings.app "out/$name.zip" ;;
+            Linux) tar -czf "out/$name.tar.gz" -C dist Klippings ;;
+          esac
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+      RELEASE_TYPE: ${{ inputs.release_type }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Create tag
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Create release
+        run: |
+          flags=()
+          if [ "$RELEASE_TYPE" = draft ]; then
+            flags+=(--draft)
+          fi
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Klippings $TAG" \
+            --generate-notes \
+            "${flags[@]}"
+
+      # Keeps source runs and local builds on the latest released version.
+      - name: Record version on main
+        run: |
+          file="repos/$GITHUB_REPOSITORY/contents/klippings/_version.py"
+          sha=$(gh api "$file?ref=$GITHUB_REF_NAME" --jq .sha)
+          content=$(printf '# Updated by the release workflow.\n__version__ = "%s"\n' "${TAG#v}" | base64 -w0)
+          gh api -X PUT "$file" \
+            -f message="Set version to $TAG" \
+            -f content="$content" \
+            -f sha="$sha" \
+            -f branch="$GITHUB_REF_NAME"

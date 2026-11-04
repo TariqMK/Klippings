@@ -1,8 +1,11 @@
+"""Klippings desktop GUI."""
+
 import tkinter as tk
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import os
-import re
+import queue
+import sys
 import threading
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -11,148 +14,41 @@ except ImportError:
     DND_FILES = None
 import json
 
-# ============================================================================
-# SCRIPT 1: Parse My Clippings.txt to Individual Files
-# ============================================================================
+from klippings._version import __version__
+from klippings.exporter import RAW_DIR_NAME, save_highlights_to_files
+from klippings.parser import parse_clippings, read_file_with_encoding
+from klippings.simplifier import SIMPLE_DIR_NAME, simplify_file
 
-def clean_file_content(file_path):
-    """Remove bookmarks from the clippings file"""
-    with open(file_path, "r", encoding="utf-8") as file:
-        content = file.read()
-
-    lines = content.split("\n")
-    new_lines = []
-    last_bookmark_position = -1
-
-    for i, line in enumerate(lines):
-        if ("Your Bookmark" in line):
-            new_lines.pop()
-            last_bookmark_position = i
-        if (last_bookmark_position == -1 or not i - last_bookmark_position < 4):
-            new_lines.append(line)
-
-    return "\n".join(new_lines)
+NO_FILE_SELECTED = "No file selected - Click Browse or drag & drop file here"
+UI_POLL_INTERVAL_MS = 50
+WORKER_CLOSE_TIMEOUT_SECONDS = 5
+LOG_FONT_FAMILIES = {"win32": "Consolas", "darwin": "Menlo"}
+SKIPPED_ENTRY_LABELS = {
+    'duplicate': "exact duplicates",
+    'note': "notes",
+    'bookmark': "bookmarks",
+    'clip': "article clips",
+    'empty': "empty highlights",
+    'clipping_limit': "clipping limit messages",
+    'unrecognised': "unrecognised entries"
+}
 
 
-def parse_clippings(content):
-    """Parse clippings and organize by book"""
-    books = {}
-    pattern = r"(.*?) \((.*?)\)\n- (Your Highlight on .*? \| location .*?|Your Highlight at location .*?|Your Highlight on page .*?|Highlight on Page .*?)\n\n(.*?)\n=========="
-    matches = re.findall(pattern, content, re.DOTALL)
-    
-    for match in matches:
-        book_title = match[0].strip().encode('utf-8').decode('utf-8-sig').strip()
-        author = match[1].strip()
-        highlight_source = match[2].strip()
-        highlight_text = match[3].strip()
-        
-        page_info = ''
-        location_info = ''
-        if 'page' in highlight_source.lower():
-            page_info = highlight_source.split('|')[0].replace('Your Highlight on ', '').strip()
-            location_info = highlight_source.split('|')[1].replace('location', '').strip()
-        elif 'location' in highlight_source.lower():
-            location_info = highlight_source.split('|')[0].replace('Your Highlight at ', '').strip()
-        
-        if book_title not in books:
-            books[book_title] = []
-        books[book_title].append((highlight_text, author, page_info, location_info))
-    
-    return books
+def asset_path(file_name):
+    """Locate a bundled asset, both from source and in a PyInstaller build"""
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(getattr(sys, "_MEIPASS", project_root), "assets", file_name)
 
 
-def save_highlights_to_files(books, output_dir='Highlights_by_Book'):
-    """Save highlights to individual book files"""
-    os.makedirs(output_dir, exist_ok=True)
-    results = []
-    
-    for book_title, highlights in books.items():
-        stripped_title = book_title.split(':')[0].strip()
-        file_name = re.sub(r'[<>:"/\\|?*]', '', stripped_title) + '.txt'
-        file_path = os.path.join(output_dir, file_name)
-        
-        with open(file_path, 'w', encoding='utf-8') as file:
-            for i, (highlight_text, author, page_info, location) in enumerate(highlights, start=1):
-                file.write(f"{i}. {highlight_text}\n\t<{book_title}>({author}) Your Highlight on {page_info} | location {location}\n\n")
-        
-        results.append((stripped_title, len(highlights)))
-    
-    return results
+class MainScrollFrame(ctk.CTkScrollableFrame):
+    """Page scroller that leaves the mouse wheel to the book list under the pointer"""
+    book_list = None
 
+    def _check_if_valid_scroll(self, widget):
+        if self.book_list is not None and widget == self.book_list._parent_canvas:
+            return False
+        return super()._check_if_valid_scroll(widget)
 
-# ============================================================================
-# SCRIPT 2: Simplify Highlights Format
-# ============================================================================
-
-def extract_book_info(text):
-    """Extract book name and author from text"""
-    match = re.search(r'<([^>]*)>\(([^)]*)\)', text)
-    if match:
-        book_name = match.group(1).split(':')[0].strip()
-        author = match.group(2).strip()
-        return book_name, author
-    return None, None
-
-
-def format_highlights(text, book_name, author):
-    """Format highlights with separators and remove metadata"""
-    header = f"{book_name}\n{author}\n\n---\n\n"
-    text = re.sub(r'\n{2,}', '\n\n---\n\n', text)
-    highlights = re.split(r'\n{2,}', text)
-    formatted_highlights = []
-
-    for highlight in highlights:
-        if highlight.strip() and '<' in highlight and '>' in highlight:
-            clean_highlight = re.sub(
-                r'<.*?>\s*\(.*?\)\s*(Your Highlight on page \d+|Highlight on Page \d+ \| Loc\..*|Your Highlight at location \d+-\d+|Your Highlight on page \d+ \| location \d+-\d+).*$',
-                '', highlight
-            ).strip()
-            if clean_highlight:
-                formatted_highlights.append(clean_highlight)
-
-    return header + '\n\n---\n\n'.join(formatted_highlights)
-
-
-def read_file_with_encoding(filename):
-    """Read file with various encodings"""
-    encodings = ['utf-8', 'utf-8-sig', 'cp1252', 'iso-8859-1']
-    for encoding in encodings:
-        try:
-            with open(filename, 'r', encoding=encoding) as file:
-                text = file.read()
-            return text.lstrip('\ufeff')
-        except UnicodeDecodeError:
-            continue
-    raise ValueError("Could not read the file with any known encoding.")
-
-
-def simplify_highlights(input_dir='Highlights_by_Book'):
-    """Simplify all highlight files in directory"""
-    # Output goes to a sibling folder named 'Highlights_by_Book_(Simple)'
-    parent_dir = os.path.dirname(input_dir) or '.'
-    simple_dir = os.path.join(parent_dir, 'Highlights_by_Book_(Simple)')
-    os.makedirs(simple_dir, exist_ok=True)
-
-    results = []
-    for filename in os.listdir(input_dir):
-        if filename.endswith('.txt'):
-            filepath = os.path.join(input_dir, filename)
-            text = read_file_with_encoding(filepath)
-            
-            book_name, author = extract_book_info(text)
-            if book_name and author:
-                formatted_text = format_highlights(text, book_name, author)
-                output_filename = os.path.join(simple_dir, filename)
-                with open(output_filename, 'w', encoding='utf-8') as output_file:
-                    output_file.write(formatted_text)
-                results.append(book_name)
-    
-    return results
-
-
-# ============================================================================
-# GUI Application
-# ============================================================================
 
 class KindleHighlightsGUI:
     def __init__(self):
@@ -168,14 +64,15 @@ class KindleHighlightsGUI:
             
             # Create CTk window as Toplevel
             self.root = ctk.CTkToplevel(root)
-            self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
             self._tk_root = root
         else:
             self.root = ctk.CTk()
             self._tk_root = None
         
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.title("Klippings")
         self.root.geometry("900x820")
+        self.set_window_icon()
         
         # Load saved preferences
         self.config_file = os.path.join(os.path.expanduser("~"), ".kindle_highlights_config.json")
@@ -185,12 +82,16 @@ class KindleHighlightsGUI:
         self.is_processing = False
         self.cancel_requested = False
         
+        self.closing = False
+        self.worker = None
+        self.ui_queue = queue.Queue()
+
         # Configure grid
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
         
         # Create main scrollable frame that contains everything
-        self.main_scroll_frame = ctk.CTkScrollableFrame(
+        self.main_scroll_frame = MainScrollFrame(
             self.root,
             fg_color="transparent"
         )
@@ -198,12 +99,24 @@ class KindleHighlightsGUI:
         self.main_scroll_frame.grid_columnconfigure(0, weight=1)
         
         # Title
+        self.title_frame = ctk.CTkFrame(self.main_scroll_frame, fg_color="transparent")
+        self.title_frame.grid(row=0, column=0, padx=40, pady=(24, 2), sticky="w")
+
         self.title_label = ctk.CTkLabel(
-            self.main_scroll_frame,
+            self.title_frame,
             text="Klippings",
             font=ctk.CTkFont(size=36, weight="bold")
         )
-        self.title_label.grid(row=0, column=0, padx=40, pady=(24, 2), sticky="w")
+        self.title_label.grid(row=0, column=0)
+
+        # Version
+        self.version_label = ctk.CTkLabel(
+            self.title_frame,
+            text=f"v{__version__}",
+            font=ctk.CTkFont(size=14),
+            text_color=("gray60", "gray45")
+        )
+        self.version_label.grid(row=0, column=1, padx=(10, 0), pady=(0, 5), sticky="s")
 
         # Secondary title
         self.secondary_label = ctk.CTkLabel(
@@ -236,7 +149,7 @@ class KindleHighlightsGUI:
         file_title.grid(row=0, column=0, columnspan=3, padx=20, pady=(14, 10), sticky="w")
         
         # File path display
-        self.file_path_var = tk.StringVar(value="No file selected - Click Browse or drag & drop file here")
+        self.file_path_var = tk.StringVar(value=NO_FILE_SELECTED)
         self.file_path_entry = ctk.CTkEntry(
             self.file_frame,
             textvariable=self.file_path_var,
@@ -318,6 +231,7 @@ class KindleHighlightsGUI:
         )
         self.books_scroll_frame.grid(row=2, column=0, padx=20, pady=(0, 14), sticky="ew")
         self.books_scroll_frame.grid_columnconfigure(0, weight=1)
+        self.main_scroll_frame.book_list = self.books_scroll_frame
         
         # Dictionary to store book checkboxes
         self.book_vars = {}
@@ -444,7 +358,7 @@ class KindleHighlightsGUI:
         self.log_text = ctk.CTkTextbox(
             self.log_frame,
             wrap="word",
-            font=ctk.CTkFont(family="Consolas", size=12),
+            font=ctk.CTkFont(family=LOG_FONT_FAMILIES.get(sys.platform, "DejaVu Sans Mono"), size=12),
             corner_radius=10,
             height=220
         )
@@ -475,31 +389,47 @@ class KindleHighlightsGUI:
             self.log("⚠️  Drag & drop not available (tkinterdnd2 not installed)")
             self.log("   Install with: pip install tkinterdnd2\n")
         self.log("Ready to process your highlights! ✨\n")
+        self.poll_ui_queue()
         
     def load_preferences(self):
         """Load saved preferences from config file"""
+        self.last_output_dir = os.path.expanduser("~")
         try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                    self.last_output_dir = config.get('last_output_dir', os.getcwd())
-            else:
-                self.last_output_dir = os.getcwd()
-        except:
-            self.last_output_dir = os.getcwd()
-    
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                saved_dir = json.load(f).get('last_output_dir')
+            if saved_dir and os.path.isdir(saved_dir):
+                self.last_output_dir = saved_dir
+        except (OSError, ValueError, AttributeError):
+            pass
+
     def save_preferences(self):
         """Save preferences to config file"""
         try:
             config = {'last_output_dir': self.output_path_var.get()}
-            with open(self.config_file, 'w') as f:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config, f)
-        except:
+        except OSError:
             pass
-    
+
+    def set_window_icon(self):
+        """Show the Klippings logo on the window, when the logo is available"""
+        is_windows = sys.platform.startswith("win")
+        icon_path = asset_path("Klippings Logo.ico" if is_windows else "Klippings Logo.png")
+        if not os.path.exists(icon_path):
+            return
+        try:
+            if is_windows:
+                self.root.iconbitmap(icon_path)
+            else:
+                self.icon_image = tk.PhotoImage(file=icon_path)
+                self.root.iconphoto(True, self.icon_image)
+        except tk.TclError:
+            pass
+
     def browse_output_dir(self):
         """Open directory browser to select output location"""
         directory = filedialog.askdirectory(
+            parent=self.root,
             title="Select Output Directory",
             initialdir=self.output_path_var.get()
         )
@@ -507,33 +437,32 @@ class KindleHighlightsGUI:
             self.output_path_var.set(directory)
             self.save_preferences()
             self.log(f"📂 Output directory: {directory}")
-    
+
     def drop_file(self, event):
         """Handle drag and drop file"""
-        # Get the dropped file path (handle both {file} format and plain path)
-        file_path = event.data
-        # Remove curly braces if present
-        if file_path.startswith('{') and file_path.endswith('}'):
-            file_path = file_path[1:-1]
-        
-        file_path = file_path.strip()
-        
+        # Tk splits the paths and removes the braces around any containing spaces
+        dropped_files = self.root.tk.splitlist(event.data)
+        file_path = dropped_files[0].strip() if dropped_files else ''
+
         if os.path.isfile(file_path) and file_path.lower().endswith('.txt'):
             self.file_path_var.set(file_path)
             self.log(f"📁 File dropped: {os.path.basename(file_path)}")
+            if len(dropped_files) > 1:
+                self.log("⚠️  Several files were dropped, only the first one is used")
             self.parse_and_show_books(file_path)
         else:
-            messagebox.showerror("Invalid File", "Please drop a valid .txt file")
-        
+            messagebox.showerror("Invalid File", "Please drop a valid .txt file", parent=self.root)
+
     def cancel_processing(self):
         """Cancel the current processing operation"""
         if self.is_processing:
             self.cancel_requested = True
-            self.log("\n⚠️  Cancellation requested... stopping after current operation")
-        
+            self.log("\n⚠️  Cancellation requested... stopping after current file")
+
     def browse_file(self):
         """Open file browser to select My Clippings.txt"""
         filename = filedialog.askopenfilename(
+            parent=self.root,
             title="Select My Clippings.txt",
             filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
             initialdir=os.path.expanduser("~")
@@ -542,262 +471,330 @@ class KindleHighlightsGUI:
             self.file_path_var.set(filename)
             self.log(f"📁 File selected: {os.path.basename(filename)}")
             self.parse_and_show_books(filename)
-    
+
     def parse_and_show_books(self, filepath):
         """Parse the clippings file and display book selection"""
+        self.log("📖 Parsing books from file...")
+
+        # Clear the previous file's books so they can't be processed by mistake
+        for widget in self.books_scroll_frame.winfo_children():
+            widget.destroy()
+        self.book_vars.clear()
+        self.book_data = {}
+        self.book_selection_frame.grid_remove()
+
         try:
-            self.log("📖 Parsing books from file...")
-            content = clean_file_content(filepath)
-            books = parse_clippings(content)
-            
-            # Clear existing checkboxes
-            for widget in self.books_scroll_frame.winfo_children():
-                widget.destroy()
-            self.book_vars.clear()
-            self.book_data = books
-            
-            # Create checkboxes for each book
-            for i, (book_title, highlights) in enumerate(books.items()):
-                var = tk.BooleanVar(value=True)  # Default to selected
-                self.book_vars[book_title] = var
-                
-                # Create checkbox with book title and highlight count
-                checkbox = ctk.CTkCheckBox(
-                    self.books_scroll_frame,
-                    text=f"{book_title} ({len(highlights)} highlights)",
-                    variable=var,
-                    font=ctk.CTkFont(size=13),
-                    checkbox_width=22,
-                    checkbox_height=22
-                )
-                checkbox.grid(row=i, column=0, padx=15, pady=5, sticky="w")
-            
-            # Show the book selection frame
-            self.book_selection_frame.grid()
-            
-            self.log(f"✓ Found {len(books)} books. Select which ones to process.\n")
-            
+            books, stats = parse_clippings(read_file_with_encoding(filepath))
         except Exception as e:
             self.log(f"✗ Error parsing books: {str(e)}")
-            messagebox.showerror("Parse Error", f"Could not parse books:\n{str(e)}")
-    
+            messagebox.showerror("Parse Error", f"Could not parse books:\n{str(e)}", parent=self.root)
+            return
+
+        self.book_data = books
+
+        # Create checkboxes for each book
+        for i, (book_title, highlights) in enumerate(books.items()):
+            var = tk.BooleanVar(value=True)  # Default to selected
+            self.book_vars[book_title] = var
+
+            # Create checkbox with book title and highlight count
+            checkbox = ctk.CTkCheckBox(
+                self.books_scroll_frame,
+                text=f"{book_title} ({len(highlights)} highlights)",
+                variable=var,
+                font=ctk.CTkFont(size=13),
+                checkbox_width=22,
+                checkbox_height=22
+            )
+            checkbox.grid(row=i, column=0, padx=15, pady=5, sticky="w")
+
+        self.log_parse_summary(stats)
+
+        if not books:
+            self.log("✗ No highlights found in this file.\n")
+            messagebox.showwarning(
+                "No Highlights Found",
+                "⚠️ No highlights were found in this file.\n\nPlease check it's a Kindle 'My Clippings.txt' file.",
+                parent=self.root
+            )
+            return
+
+        # Show the book selection frame
+        self.book_selection_frame.grid()
+        self.log(f"✓ Found {len(books)} books. Select which ones to process.\n")
+
+    def log_parse_summary(self, stats):
+        """Log what was found in the clippings file and what was left out"""
+        self.log(f"  Highlights: {stats['highlight']}")
+        for key, label in SKIPPED_ENTRY_LABELS.items():
+            if stats[key]:
+                self.log(f"  Skipped {label}: {stats[key]}")
+
     def select_all_books(self):
         """Select all books"""
         for var in self.book_vars.values():
             var.set(True)
         self.log("✓ All books selected")
-    
+
     def select_none_books(self):
         """Deselect all books"""
         for var in self.book_vars.values():
             var.set(False)
         self.log("○ All books deselected")
-        
+
     def log(self, message):
-        """Add message to log"""
+        """Add message to log, from any thread"""
+        self.run_on_ui(lambda: self.append_log(message))
+
+    def append_log(self, message):
+        """Write a message to the log widget"""
         self.log_text.configure(state="normal")
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
-        self.root.update_idletasks()
-        
+
+    def run_on_ui(self, callback):
+        """Queue a callback for the UI thread, as Tk isn't safe to use from others"""
+        self.ui_queue.put(callback)
+
+    def poll_ui_queue(self):
+        """Run callbacks queued for the UI thread"""
+        try:
+            while not self.closing:
+                self.ui_queue.get_nowait()()
+        except queue.Empty:
+            pass
+        finally:
+            if not self.closing:
+                self.root.after(UI_POLL_INTERVAL_MS, self.poll_ui_queue)
+
     def clear_log(self):
         """Clear the log"""
         self.log_text.configure(state="normal")
         self.log_text.delete("1.0", "end")
         self.log_text.configure(state="disabled")
-        
+
     def validate_prerequisites(self):
         """Check if required files exist"""
         if self.script1_var.get():
             clippings_path = self.file_path_var.get()
-            if clippings_path == "No file selected - Click Browse or drag & drop file here" or not clippings_path:
+            if clippings_path == NO_FILE_SELECTED or not clippings_path:
                 messagebox.showerror(
-                    "Missing File", 
-                    "❌ No file selected!\n\nPlease browse or drag & drop your 'My Clippings.txt' file."
+                    "Missing File",
+                    "❌ No file selected!\n\nPlease browse or drag & drop your 'My Clippings.txt' file.",
+                    parent=self.root
                 )
                 return False
             if not os.path.exists(clippings_path):
                 messagebox.showerror(
-                    "File Not Found", 
-                    f"❌ Selected file not found:\n\n{clippings_path}"
+                    "File Not Found",
+                    f"❌ Selected file not found:\n\n{clippings_path}",
+                    parent=self.root
                 )
                 return False
-            
+
             # Check if any books are selected
             if not self.book_data:
                 messagebox.showerror(
-                    "No Books Parsed",
-                    "❌ Please select a My Clippings.txt file first to parse books."
+                    "No Highlights Found",
+                    "❌ No highlights were found in the selected file.\n\nPlease select a different 'My Clippings.txt' file.",
+                    parent=self.root
                 )
                 return False
-            
+
             selected_count = sum(1 for var in self.book_vars.values() if var.get())
             if selected_count == 0:
                 messagebox.showwarning(
                     "No Books Selected",
-                    "⚠️ Please select at least one book to process."
+                    "⚠️ Please select at least one book to process.",
+                    parent=self.root
                 )
                 return False
-        
+
         # Check output directory
         output_dir = self.output_path_var.get()
-        if not output_dir or not os.path.exists(output_dir):
+        if not output_dir or not os.path.isdir(output_dir):
             messagebox.showerror(
                 "Invalid Output Directory",
-                "❌ Please select a valid output directory!"
+                "❌ Please select a valid output directory!",
+                parent=self.root
             )
             return False
-        
-        if self.script2_var.get():
-            highlights_dir = os.path.join(output_dir, "Highlights_by_Book")
-            if not os.path.exists(highlights_dir):
-                if not self.script1_var.get():
-                    messagebox.showerror(
-                        "Missing Folder", 
-                        "❌ Highlights_by_Book folder not found!\n\nPlease run Step 1 first or enable it."
-                    )
-                    return False
-        
+
+        if self.script2_var.get() and not self.script1_var.get():
+            highlights_dir = os.path.join(output_dir, RAW_DIR_NAME)
+            if not os.path.isdir(highlights_dir):
+                messagebox.showerror(
+                    "Missing Folder",
+                    f"❌ {RAW_DIR_NAME} folder not found!\n\nPlease run Step 1 first or enable it.",
+                    parent=self.root
+                )
+                return False
+
         return True
-        
+
     def start_processing(self):
         """Start the processing in a separate thread"""
         if not (self.script1_var.get() or self.script2_var.get()):
-            messagebox.showwarning("No Steps Selected", "⚠️ Please select at least one processing step!")
+            messagebox.showwarning(
+                "No Steps Selected",
+                "⚠️ Please select at least one processing step!",
+                parent=self.root
+            )
             return
-        
+
         if not self.validate_prerequisites():
             return
-        
+
+        # The worker thread can't read Tk variables, so it gets a snapshot of them
+        options = {
+            'run_step1': self.script1_var.get(),
+            'run_step2': self.script2_var.get(),
+            'output_base': self.output_path_var.get(),
+            'clippings_name': os.path.basename(self.file_path_var.get()),
+            'books': {title: data for title, data in self.book_data.items() if self.book_vars[title].get()},
+            'all_titles': list(self.book_data)
+        }
+
         self.is_processing = True
         self.cancel_requested = False
         self.process_button.configure(state="disabled", text="⏳ Processing...")
         self.cancel_button.configure(state="normal")
-        
-        thread = threading.Thread(target=self.run_processing)
-        thread.daemon = True
-        thread.start()
-        
-    def run_processing(self):
+
+        self.worker = threading.Thread(target=self.run_processing, args=(options,))
+        self.worker.daemon = True
+        self.worker.start()
+
+    def run_step1(self, options, raw_dir):
+        """Export the selected books, returning the paths of the files written"""
+        self.log("\n" + "═" * 63)
+        self.log("STEP 1: Parsing My Clippings.txt")
+        self.log("═" * 63)
+        self.log(f"Reading: {options['clippings_name']}")
+        self.log(f"Processing {len(options['books'])} of {len(options['all_titles'])} books...")
+
+        results = save_highlights_to_files(
+            options['books'], raw_dir, options['all_titles'], lambda: self.cancel_requested
+        )
+
+        self.log(f"\n✓ Saved {len(results)} books:")
+        for title, count, _ in results:
+            self.log(f"  • {title}: {count} highlights")
+
+        if not self.cancel_requested:
+            self.log(f"\n✓ Step 1 completed! Files saved to: {raw_dir}")
+        return [path for _, _, path in results]
+
+    def run_step2(self, simple_dir, file_paths):
+        """Simplify the given book files, returning how many were simplified"""
+        self.log("\n" + "═" * 63)
+        self.log("STEP 2: Simplifying Highlights")
+        self.log("═" * 63)
+
+        simplified_count = 0
+        for file_path in file_paths:
+            if self.cancel_requested:
+                break
+
+            book_name = simplify_file(file_path, simple_dir)
+            if book_name:
+                simplified_count += 1
+                self.log(f"  ✓ Simplified: {book_name}")
+            else:
+                self.log(f"  ⚠️  Skipped (not a Klippings export): {os.path.basename(file_path)}")
+
+        if not self.cancel_requested and simplified_count:
+            self.log(f"\n✓ Step 2 completed! Simplified files saved to: {simple_dir}")
+        return simplified_count
+
+    def run_processing(self, options):
         """Execute selected processing steps"""
+        output_base = options['output_base']
+        raw_dir = os.path.join(output_base, RAW_DIR_NAME)
+        simple_dir = os.path.join(output_base, SIMPLE_DIR_NAME)
+        produced = []
+        outcome = 'success'
+        error_message = ''
+
         try:
-            script_dir = os.path.dirname(os.path.abspath(__file__)) if os.path.dirname(os.path.abspath(__file__)) else '.'
-            output_base = self.output_path_var.get()
-            
-            # Script 1: Parse My Clippings
-            if self.script1_var.get():
-                if self.cancel_requested:
-                    self.log("\n❌ Processing cancelled by user")
-                    return
-                    
-                self.log("\n" + "═" * 63)
-                self.log("STEP 1: Parsing My Clippings.txt")
-                self.log("═" * 63)
-                
-                try:
-                    clippings_path = self.file_path_var.get()
-                    self.log(f"Reading: {os.path.basename(clippings_path)}")
-                    
-                    # Get selected books
-                    selected_books = {title: data for title, data in self.book_data.items() 
-                                     if self.book_vars.get(title, tk.BooleanVar(value=False)).get()}
-                    
-                    if not selected_books:
-                        self.log("\n⚠️  No books selected! Aborting.")
-                        messagebox.showwarning("No Books Selected", "Please select at least one book to process.")
-                        return
-                    
-                    self.log(f"Processing {len(selected_books)} of {len(self.book_data)} books...")
-                    
-                    # Save to Highlights_by_Book in output directory
-                    output_dir = os.path.join(output_base, "Highlights_by_Book")
-                    results = save_highlights_to_files(selected_books, output_dir)
-                    
-                    self.log(f"\n✓ Successfully parsed {len(results)} books:")
-                    for title, count in results:
-                        if self.cancel_requested:
-                            self.log("\n❌ Processing cancelled by user")
-                            return
-                        self.log(f"  • {title}: {count} highlights")
-                    
-                    self.log(f"\n✓ Step 1 completed! Files saved to: {output_dir}")
-                except Exception as e:
-                    self.log(f"\n✗ Error in Step 1: {str(e)}")
-                    raise
-            
-            # Script 2: Simplify highlights
-            if self.script2_var.get():
-                if self.cancel_requested:
-                    self.log("\n❌ Processing cancelled by user")
-                    return
-                    
-                self.log("\n" + "═" * 63)
-                self.log("STEP 2: Simplifying Highlights")
-                self.log("═" * 63)
-                
-                try:
-                    input_dir = os.path.join(output_base, "Highlights_by_Book")
-                    simple_dir = os.path.join(output_base, "Highlights_by_Book_(Simple)")
-                    os.makedirs(simple_dir, exist_ok=True)
-                    
-                    # Process files one by one with cancellation checks
-                    for filename in os.listdir(input_dir):
-                        if self.cancel_requested:
-                            self.log("\n❌ Processing cancelled by user")
-                            return
-                            
-                        if filename.endswith('.txt'):
-                            filepath = os.path.join(input_dir, filename)
-                            text = read_file_with_encoding(filepath)
-                            
-                            book_name, author = extract_book_info(text)
-                            if book_name and author:
-                                formatted_text = format_highlights(text, book_name, author)
-                                output_filename = os.path.join(simple_dir, filename)
-                                with open(output_filename, 'w', encoding='utf-8') as output_file:
-                                    output_file.write(formatted_text)
-                                self.log(f"  ✓ Simplified: {book_name}")
-                    
-                    self.log(f"\n✓ Step 2 completed! Simplified files saved to: Highlights_by_Book_(Simple)")
-                except Exception as e:
-                    self.log(f"\n✗ Error in Step 2: {str(e)}")
-                    raise
-            
-            if not self.cancel_requested:
+            # With Step 1 on, Step 2 only touches this run's files. Alone, it takes the whole folder.
+            file_paths = None
+            if options['run_step1'] and not self.cancel_requested:
+                file_paths = self.run_step1(options, raw_dir)
+                produced.append(f"Raw highlights:        {raw_dir}")
+
+            if options['run_step2'] and not self.cancel_requested:
+                if file_paths is None:
+                    file_paths = [
+                        os.path.join(raw_dir, name)
+                        for name in sorted(os.listdir(raw_dir))
+                        if name.lower().endswith('.txt')
+                    ]
+                if self.run_step2(simple_dir, file_paths):
+                    produced.append(f"Simplified highlights: {simple_dir}")
+                elif not self.cancel_requested:
+                    self.log("\n⚠️  No highlight files were found to simplify")
+                    outcome = 'nothing'
+
+            if self.cancel_requested:
+                self.log("\n❌ Processing cancelled by user")
+                outcome = 'cancelled'
+            elif outcome == 'success':
                 self.log("\n" + "═" * 63)
                 self.log("🎉 ALL PROCESSING COMPLETED SUCCESSFULLY!")
-                self.log("═" * 63)
-                self.log(f"\nRaw highlights:        {os.path.join(output_base, 'Highlights_by_Book')}")
-                self.log(f"Simplified highlights: {os.path.join(output_base, 'Highlights_by_Book_(Simple)')}")
-                
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Success! 🎉", 
-                    f"Processing completed successfully!\n\nCheck the output folder:\n{output_base}"
-                ))
-            
+                self.log("═" * 63 + "\n")
+                for line in produced:
+                    self.log(line)
+
         except Exception as e:
-            self.log(f"\n\n❌ CRITICAL ERROR: {str(e)}")
-            self.root.after(0, lambda: messagebox.showerror(
-                "Error", 
-                f"An error occurred during processing:\n\n{str(e)}\n\nCheck the log for details."
-            ))
-        
+            error_message = str(e)
+            outcome = 'error'
+            self.log(f"\n\n❌ CRITICAL ERROR: {error_message}")
+
         finally:
-            self.is_processing = False
-            self.cancel_requested = False
-            self.root.after(0, lambda: self.process_button.configure(
-                state="normal",
-                text="▶ Start Processing"
-            ))
-            self.root.after(0, lambda: self.cancel_button.configure(state="disabled"))
-    
+            self.run_on_ui(lambda: self.finish_processing(outcome, output_base, error_message))
+
+    def finish_processing(self, outcome, output_base, error_message):
+        """Restore the controls and tell the user how the run went"""
+        self.is_processing = False
+        self.cancel_requested = False
+        self.process_button.configure(state="normal", text="▶ Start Processing")
+        self.cancel_button.configure(state="disabled")
+
+        if outcome == 'success':
+            messagebox.showinfo(
+                "Success! 🎉",
+                f"Processing completed successfully!\n\nCheck the output folder:\n{output_base}",
+                parent=self.root
+            )
+        elif outcome == 'nothing':
+            messagebox.showwarning(
+                "Nothing Simplified",
+                f"⚠️ No highlight files were found to simplify in:\n\n{os.path.join(output_base, RAW_DIR_NAME)}",
+                parent=self.root
+            )
+        elif outcome == 'error':
+            messagebox.showerror(
+                "Error",
+                f"An error occurred during processing:\n\n{error_message}\n\nCheck the log for details.",
+                parent=self.root
+            )
+
     def on_closing(self):
         """Handle window closing"""
+        self.closing = True
+        self.cancel_requested = True
+
+        # Let the file being written finish so it isn't left incomplete
+        if self.worker and self.worker.is_alive():
+            self.worker.join(timeout=WORKER_CLOSE_TIMEOUT_SECONDS)
+
+        # Destroying the hidden root window also destroys this one
         if self._tk_root:
             self._tk_root.destroy()
-        self.root.destroy()
-    
+        else:
+            self.root.destroy()
+
     def run(self):
         """Start the GUI"""
         if self._tk_root:
@@ -806,6 +803,6 @@ class KindleHighlightsGUI:
             self.root.mainloop()
 
 
-if __name__ == "__main__":
+def main():
     app = KindleHighlightsGUI()
     app.run()

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "klippings"
+dynamic = ["version"]
+description = "Parse and simplify your Kindle highlights"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "customtkinter",
+    "tkinterdnd2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.gui-scripts]
+klippings = "klippings.gui:main"
+
+[tool.setuptools]
+packages = ["klippings"]
+
+[tool.setuptools.dynamic]
+version = { attr = "klippings._version.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
