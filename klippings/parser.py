@@ -1,6 +1,7 @@
-"""Parse My Clippings.txt into highlights grouped by book."""
+"""Parse My Clippings.txt files into highlights grouped by book."""
 
 from collections import Counter
+from datetime import datetime
 import codecs
 import re
 
@@ -10,6 +11,11 @@ ENTRY_TYPE = re.compile(r'^-\s*(?:Your\s+)?(Highlight|Note|Bookmark|Clip)\b', re
 PAGE = re.compile(r'\bpage\s+([^\s|]+)', re.IGNORECASE)
 LOCATION = re.compile(r'\b(?:location|loc\.)\s*([^\s|]+)', re.IGNORECASE)
 ADDED_ON = re.compile(r'\|\s*Added on\b.*$', re.IGNORECASE)
+ADDED_DATE_DAY_FIRST = re.compile(r'\bAdded on\b.*?\b(?P<day>\d{1,2})\s+(?P<month>[A-Za-z]+)\s+(?P<year>\d{4})', re.IGNORECASE)
+ADDED_DATE_MONTH_FIRST = re.compile(r'\bAdded on\b.*?\b(?P<month>[A-Za-z]+)\s+(?P<day>\d{1,2}),?\s+(?P<year>\d{4})', re.IGNORECASE)
+ADDED_TIME = re.compile(r'\b(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([AP])\.?M\b)?', re.IGNORECASE)
+MONTHS = ('january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december')
+LEADING_NUMBER = re.compile(r'\D*(\d+)')
 CLIPPING_LIMIT = '<You have reached the clipping limit'
 
 
@@ -53,10 +59,53 @@ def parse_metadata(line):
     )
 
 
-def parse_clippings(content):
+def parse_added_on(line):
+    """Return when a clipping was added, or None if its metadata line has no date we can read"""
+    date = ADDED_DATE_DAY_FIRST.search(line) or ADDED_DATE_MONTH_FIRST.search(line)
+    if not date or date.group('month').lower() not in MONTHS:
+        return None
+
+    time = ADDED_TIME.search(line, date.end())
+    hour, minute, second, meridiem = time.groups() if time else (0, 0, 0, None)
+    hour = int(hour)
+    if meridiem:
+        hour = hour % 12 + (12 if meridiem.upper() == 'P' else 0)
+    try:
+        return datetime(
+            int(date.group('year')),
+            MONTHS.index(date.group('month').lower()) + 1,
+            int(date.group('day')),
+            hour,
+            int(minute),
+            int(second or 0)
+        )
+    except ValueError:
+        return None
+
+
+def place_in_book(highlight):
+    """Return a highlight's position as (location, page), with anything unknown placed last"""
+    numbers = []
+    for value in (highlight[3], highlight[2]):
+        match = LEADING_NUMBER.match(value)
+        numbers.append(int(match.group(1)) if match else float('inf'))
+    return tuple(numbers)
+
+
+def in_order_taken(highlights, added_dates):
+    """Sort by date, then by place, using place alone unless every date could be read"""
+    pairs = list(zip(highlights, added_dates))
+    if all(added_dates):
+        pairs.sort(key=lambda pair: (pair[1], place_in_book(pair[0])))
+    else:
+        pairs.sort(key=lambda pair: place_in_book(pair[0]))
+    return [highlight for highlight, _ in pairs]
+
+
+def parse_clippings(content, sort_highlights=False):
     """Organize highlights by book, returning (books, counts of each outcome)"""
     books = {}
-    seen = set()
+    added_dates = {}
     stats = Counter()
 
     for entry in ENTRY_SEPARATOR.split(content):
@@ -84,13 +133,17 @@ def parse_clippings(content):
             continue
 
         book_title, author = split_title_and_author(lines[0].strip())
-        key = (book_title, highlight_text, page_info, location_info)
-        if key in seen:
-            stats['duplicate'] += 1
-            continue
-        seen.add(key)
-
         books.setdefault(book_title, []).append((highlight_text, author, page_info, location_info))
+        added_dates.setdefault(book_title, []).append(parse_added_on(lines[1]))
         stats['highlight'] += 1
 
+    if sort_highlights:
+        books = {title: in_order_taken(highlights, added_dates[title]) for title, highlights in books.items()}
+
     return books, stats
+
+
+def parse_clipping_files(filenames):
+    """Parse several files as one, merging shared books and putting highlights in the order taken"""
+    content = '\n==========\n'.join(read_file_with_encoding(filename) for filename in filenames)
+    return parse_clippings(content, sort_highlights=len(filenames) > 1)

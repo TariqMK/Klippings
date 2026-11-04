@@ -17,13 +17,11 @@ import json
 
 from klippings._version import __version__
 from klippings.exporter import export_books, existing_files
-from klippings.parser import parse_clippings, read_file_with_encoding
+from klippings.parser import parse_clipping_files
 
-NO_FILE_SELECTED = ""
 UI_POLL_INTERVAL_MS = 50
 WORKER_CLOSE_TIMEOUT_SECONDS = 5
 SKIPPED_ENTRY_LABELS = {
-    'duplicate': "exact duplicates",
     'note': "notes",
     'bookmark': "bookmarks",
     'clip': "article clips",
@@ -122,6 +120,14 @@ def open_folder(path):
         os.startfile(path)
     else:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+
+
+def list_file_names(paths):
+    """List file names for a dialog, one per line, cutting off a long list"""
+    names = [os.path.basename(path) for path in paths[:MAX_LISTED_REPLACEMENTS]]
+    if len(paths) > MAX_LISTED_REPLACEMENTS:
+        names.append(f"and {len(paths) - MAX_LISTED_REPLACEMENTS:,} more")
+    return "\n".join(names)
 
 
 class BookRow(ctk.CTkFrame):
@@ -240,10 +246,9 @@ class KindleHighlightsGUI:
         self.selected_title = None
         self.appearance_mode = ctk.get_appearance_mode()
 
-        self.file_path_var = tk.StringVar(value=NO_FILE_SELECTED)
+        self.file_paths = []
         self.output_path_var = tk.StringVar(value=self.last_output_dir)
         self.with_metadata_var = tk.BooleanVar(value=True)
-        self.text_only_var = tk.BooleanVar(value=True)
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
@@ -260,7 +265,7 @@ class KindleHighlightsGUI:
 
         if TkinterDnD and DND_FILES:
             self.root.drop_target_register(DND_FILES)
-            self.root.dnd_bind('<<Drop>>', self.drop_file)
+            self.root.dnd_bind('<<Drop>>', self.drop_files)
             self.root.dnd_bind('<<DropEnter>>', lambda event: self.show_drop_hover(True))
             self.root.dnd_bind('<<DropLeave>>', lambda event: self.show_drop_hover(False))
         else:
@@ -444,6 +449,16 @@ class KindleHighlightsGUI:
             spacing1=round(scale(8)),
             spacing3=round(scale(28))
         )
+        # Keeps highlights apart when their place lines are hidden
+        text.tag_configure("highlight_gap", font=(UI_FONT, -round(scale(4))), spacing3=round(scale(28)))
+        self.show_metadata_in_preview()
+
+    def show_metadata_in_preview(self):
+        """Make the reading view match what the export will contain, without losing the reader's place"""
+        with_metadata = self.with_metadata_var.get()
+        text = self.reading_view._textbox
+        text.tag_configure("highlight_place", elide=not with_metadata)
+        text.tag_configure("highlight_gap", elide=with_metadata)
 
     def limit_reading_line_width(self):
         """Keep lines at a readable length, however wide the window gets"""
@@ -477,10 +492,23 @@ class KindleHighlightsGUI:
         self.output_path_var.trace_add("write", lambda *args: self.update_export_state())
         self.refresh_output_button()
 
-        self.text_only_check = self.format_checkbox(bar, "Text only", self.text_only_var)
-        self.text_only_check.grid(row=0, column=3, padx=(8, 16))
-        self.with_metadata_check = self.format_checkbox(bar, "With metadata", self.with_metadata_var)
-        self.with_metadata_check.grid(row=0, column=4, padx=(0, 24))
+        self.with_metadata_var.trace_add("write", lambda *args: self.show_metadata_in_preview())
+        self.with_metadata_check = ctk.CTkCheckBox(
+            bar,
+            text="Include page & location",
+            variable=self.with_metadata_var,
+            font=ui_font(13),
+            text_color=COLOR_TEXT,
+            checkbox_width=18,
+            checkbox_height=18,
+            corner_radius=4,
+            border_width=1,
+            fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER,
+            border_color=COLOR_CONTROL_BORDER,
+            checkmark_color=COLOR_ON_ACCENT
+        )
+        self.with_metadata_check.grid(row=0, column=3, padx=(8, 24))
 
         self.process_button = ctk.CTkButton(
             bar,
@@ -512,24 +540,6 @@ class KindleHighlightsGUI:
         )
         self.cancel_button.grid(row=0, column=5, padx=(0, 24))
         self.cancel_button.grid_remove()
-
-    def format_checkbox(self, master, text, variable):
-        variable.trace_add("write", lambda *args: self.update_export_state())
-        return ctk.CTkCheckBox(
-            master,
-            text=text,
-            variable=variable,
-            font=ui_font(13),
-            text_color=COLOR_TEXT,
-            checkbox_width=18,
-            checkbox_height=18,
-            corner_radius=4,
-            border_width=1,
-            fg_color=COLOR_ACCENT,
-            hover_color=COLOR_ACCENT_HOVER,
-            border_color=COLOR_CONTROL_BORDER,
-            checkmark_color=COLOR_ON_ACCENT
-        )
 
     def build_status_bar(self):
         bar = ctk.CTkFrame(self.root, height=36, corner_radius=0, fg_color=COLOR_SIDEBAR)
@@ -640,21 +650,25 @@ class KindleHighlightsGUI:
     def show_drop_hover(self, hovering):
         self.empty_state.configure(border_color=COLOR_ACCENT if hovering else COLOR_PAGE)
 
-    def drop_file(self, event):
-        """Handle drag and drop file"""
+    def drop_files(self, event):
+        """Open the text files among those dropped, and say which others were left out"""
         self.show_drop_hover(False)
         # Tk splits the paths and removes the braces around any containing spaces
-        dropped_files = self.root.tk.splitlist(event.data)
-        file_path = dropped_files[0].strip() if dropped_files else ''
+        dropped_files = [path.strip() for path in self.root.tk.splitlist(event.data)]
+        file_paths = [path for path in dropped_files if os.path.isfile(path) and path.lower().endswith('.txt')]
 
-        if os.path.isfile(file_path) and file_path.lower().endswith('.txt'):
-            self.file_path_var.set(file_path)
-            self.log(f"File dropped: {os.path.basename(file_path)}")
-            if len(dropped_files) > 1:
-                self.log("Several files were dropped, only the first one is used")
-            self.parse_and_show_books(file_path)
-        else:
+        if not file_paths:
             messagebox.showerror("Can't Open This File", "Klippings reads .txt files, like My Clippings.txt.", parent=self.root)
+            return
+
+        left_out = [path for path in dropped_files if path not in file_paths]
+        if left_out:
+            messagebox.showwarning(
+                "Some Files Left Out",
+                "Klippings reads .txt files, so these were left out:\n\n" + list_file_names(left_out),
+                parent=self.root
+            )
+        self.open_files(file_paths, "dropped")
 
     def cancel_processing(self):
         """Cancel the current processing operation"""
@@ -664,23 +678,29 @@ class KindleHighlightsGUI:
             self.set_status("Cancelling…")
 
     def browse_file(self):
-        """Open file browser to select My Clippings.txt"""
-        filename = filedialog.askopenfilename(
+        """Open file browser to select one or more clippings files"""
+        filenames = filedialog.askopenfilenames(
             parent=self.root,
-            title="Choose My Clippings.txt",
+            title="Choose One or More Clippings Files",
             filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
             initialdir=os.path.expanduser("~")
         )
-        if filename:
-            self.file_path_var.set(filename)
-            self.log(f"File selected: {os.path.basename(filename)}")
-            self.parse_and_show_books(filename)
+        if filenames:
+            self.open_files(filenames, "selected")
 
-    def parse_and_show_books(self, filepath):
-        """Parse the clippings file and display book selection"""
-        self.log("Reading the file")
+    def open_files(self, file_paths, how):
+        """Replace what's open with these clippings files"""
+        self.file_paths = list(file_paths)
+        for path in self.file_paths:
+            self.log(f"File {how}: {os.path.basename(path)}")
+        self.parse_and_show_books(self.file_paths)
 
-        # Clear the previous file's books so they can't be processed by mistake
+    def parse_and_show_books(self, file_paths):
+        """Parse the clippings files and display book selection"""
+        single_file = len(file_paths) == 1
+        self.log("Reading the file" if single_file else "Reading the files")
+
+        # Clear the previous books so they can't be processed by mistake
         for widget in self.books_scroll_frame.winfo_children():
             widget.destroy()
         self.book_vars.clear()
@@ -690,11 +710,12 @@ class KindleHighlightsGUI:
         self.show_book_view(False)
 
         try:
-            books, stats = parse_clippings(read_file_with_encoding(filepath))
+            books, stats = parse_clipping_files(file_paths)
         except Exception as e:
             self.log(f"Couldn't read the file: {str(e)}")
-            self.set_status("Couldn't read that file")
-            messagebox.showerror("Can't Read This File", f"Klippings couldn't read this file.\n\n{str(e)}", parent=self.root)
+            self.set_status("Couldn't read that file" if single_file else "Couldn't read one of those files")
+            message = "this file" if single_file else "one of these files"
+            messagebox.showerror("Can't Read This File", f"Klippings couldn't read {message}.\n\n{str(e)}", parent=self.root)
             self.update_export_state()
             return
 
@@ -702,11 +723,12 @@ class KindleHighlightsGUI:
         self.log_parse_summary(stats)
 
         if not books:
-            self.log("No highlights found in this file\n")
-            self.set_status("No highlights found in that file")
+            self.log("No highlights found\n")
+            self.set_status("No highlights found in that file" if single_file else "No highlights found in those files")
             messagebox.showwarning(
                 "No Highlights Found",
-                "This file has no highlights. Check it's the My Clippings.txt from your Kindle.",
+                "This file has no highlights. Check it's the My Clippings.txt from your Kindle."
+                if single_file else "These files have no highlights. Check they're My Clippings.txt files from your Kindle.",
                 parent=self.root
             )
             self.update_export_state()
@@ -731,7 +753,7 @@ class KindleHighlightsGUI:
 
         highlight_total = sum(len(highlights) for highlights in books.values())
         self.book_summary_label.configure(text=f"{format_count(len(books), 'book')}, {format_count(highlight_total, 'highlight')}")
-        self.file_label.configure(text=os.path.basename(filepath))
+        self.file_label.configure(text=os.path.basename(file_paths[0]) if single_file else format_count(len(file_paths), 'file'))
         self.show_book_view(True)
         self.select_book(next(iter(books)))
         self.update_export_state()
@@ -783,6 +805,7 @@ class KindleHighlightsGUI:
                     view.insert("end", line, ("highlight", "highlight_line"))
                 view.insert("end", "\n", "highlight_line")
             view.insert("end", format_place(page_info, location) + "\n", "highlight_place")
+            view.insert("end", "\n", "highlight_gap")
 
         view.configure(state="disabled")
         view.yview_moveto(0)
@@ -839,8 +862,6 @@ class KindleHighlightsGUI:
         enabled = False
         if not selected_count:
             label = "Export"
-        elif not (self.with_metadata_var.get() or self.text_only_var.get()):
-            label = "Choose a Format"
         elif not output_dir:
             label = "Choose a Folder"
         else:
@@ -917,18 +938,18 @@ class KindleHighlightsGUI:
 
     def validate_prerequisites(self):
         """Check that the export has everything it needs"""
-        clippings_path = self.file_path_var.get()
-        if clippings_path == NO_FILE_SELECTED or not clippings_path:
+        if not self.file_paths:
             messagebox.showerror(
                 "No File Chosen",
                 "Choose your My Clippings.txt file first.",
                 parent=self.root
             )
             return False
-        if not os.path.exists(clippings_path):
+        missing = [path for path in self.file_paths if not os.path.exists(path)]
+        if missing:
             messagebox.showerror(
                 "File Not Found",
-                f"This file has moved or been deleted:\n\n{clippings_path}",
+                "These files have moved or been deleted:\n\n" + list_file_names(missing),
                 parent=self.root
             )
             return False
@@ -949,14 +970,6 @@ class KindleHighlightsGUI:
             )
             return False
 
-        if not (self.with_metadata_var.get() or self.text_only_var.get()):
-            messagebox.showwarning(
-                "No Format Chosen",
-                "Turn on Text only, With metadata, or both.",
-                parent=self.root
-            )
-            return False
-
         output_dir = self.output_path_var.get()
         if not output_dir or not os.path.isdir(output_dir):
             messagebox.showerror(
@@ -971,17 +984,14 @@ class KindleHighlightsGUI:
     def confirm_replacing_files(self, options):
         """Ask before overwriting files already in the chosen folder"""
         replaced = existing_files(
-            options['books'], options['output_dir'], options['with_metadata'], options['text_only'], options['all_titles']
+            options['books'], options['output_dir'], options['with_metadata'], options['all_titles']
         )
         if not replaced:
             return True
 
-        names = [os.path.basename(path) for path in replaced[:MAX_LISTED_REPLACEMENTS]]
-        if len(replaced) > MAX_LISTED_REPLACEMENTS:
-            names.append(f"and {len(replaced) - MAX_LISTED_REPLACEMENTS:,} more")
         return messagebox.askyesno(
             "Replace Existing Files?",
-            f"This folder already has {format_count(len(replaced), 'file')} with the same name. Replacing can't be undone.\n\n" + "\n".join(names),
+            f"This folder already has {format_count(len(replaced), 'file')} with the same name. Replacing can't be undone.\n\n" + list_file_names(replaced),
             icon="warning",
             default="no",
             parent=self.root
@@ -999,9 +1009,8 @@ class KindleHighlightsGUI:
         # The worker thread can't read Tk variables, so it gets a snapshot of them
         options = {
             'with_metadata': self.with_metadata_var.get(),
-            'text_only': self.text_only_var.get(),
             'output_dir': self.output_path_var.get(),
-            'clippings_name': os.path.basename(self.file_path_var.get()),
+            'clippings_name': ", ".join(os.path.basename(path) for path in self.file_paths),
             'books': {title: data for title, data in self.book_data.items() if self.book_vars[title].get()},
             'all_titles': list(self.book_data)
         }
@@ -1022,7 +1031,7 @@ class KindleHighlightsGUI:
         self.worker.start()
 
     def run_processing(self, options):
-        """Export the selected books in the chosen formats"""
+        """Export the selected books"""
         output_dir = options['output_dir']
         book_count = 0
         outcome = 'success'
@@ -1036,7 +1045,6 @@ class KindleHighlightsGUI:
                 options['books'],
                 output_dir,
                 options['with_metadata'],
-                options['text_only'],
                 options['all_titles'],
                 lambda: self.cancel_requested
             )

@@ -89,11 +89,12 @@ The new version is worked out from the highest existing tag or release, includin
 ## Notes
 
 - The new text files are saved directly in the folder you choose, with no subfolder added
-- **Text only** saves your highlights cleanly for PKMS systems like Obsidian, as `Book Title.txt`. **With metadata** keeps each highlight's location, as `Book Title (with metadata).txt`. You can export either format or both
+- You can choose or drop several clippings files at once, such as those from different Kindles. Their books are combined, and a highlight found in more than one file appears once for each. Highlights are put in the order they were taken, by date and then location, or by location alone if a book has a date that can't be read
+- By default, each highlight keeps its page and location, saved as `Book Title.txt`. Turn off **Include page & location** to save your highlights cleanly for PKMS systems like Obsidian, as `Book Title (simple).txt`. The preview shows which version you'll get
 - When the application is run and the highlights have been extracted, a summary of books and highlights processed will be displayed in the application itself
-- Bookmarks, notes, article clips, empty highlights, clipping limit messages and exact duplicates are left out of the export, and the application shows how many of each were skipped
+- Bookmarks, notes, article clips, empty highlights and clipping limit messages are left out of the export, and the application shows how many of each were skipped
 - If a file with the same name is already in the folder, the application asks before replacing it
-- Keyboard shortcuts: `Ctrl/Cmd+O` chooses a file, `Ctrl/Cmd+Return` exports, the arrow keys move through books, `Space` includes or leaves out the current book, and `Esc` cancels an export
+- Keyboard shortcuts: `Ctrl/Cmd+O` chooses files, `Ctrl/Cmd+Return` exports, the arrow keys move through books, `Space` includes or leaves out the current book, and `Esc` cancels an export
 
 ---
 

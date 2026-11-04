@@ -1,9 +1,9 @@
-"""Write parsed highlights to text files, one or two per book."""
+"""Write parsed highlights to text files, one per book."""
 
 import os
 import re
 
-METADATA_FILE_SUFFIX = ' (with metadata)'
+SIMPLE_FILE_SUFFIX = ' (simple)'
 MAX_FILE_STEM_LENGTH = 120
 RESERVED_FILE_STEMS = {'CON', 'PRN', 'AUX', 'NUL'} | {
     f'{device}{number}' for device in ('COM', 'LPT') for number in range(1, 10)
@@ -69,7 +69,7 @@ def format_with_metadata(book_title, highlights):
     )
 
 
-def format_text_only(book_title, highlights):
+def format_simple(book_title, highlights):
     """Format highlights with separators and no metadata"""
     author = highlights[0][1]
     header_lines = [short_title(book_title), author] if author else [short_title(book_title)]
@@ -77,40 +77,36 @@ def format_text_only(book_title, highlights):
     return '\n'.join(header_lines) + '\n\n---\n\n' + '\n\n---\n\n'.join(numbered)
 
 
-def planned_files(books, output_dir, with_metadata=True, text_only=True, all_titles=None):
-    """Work out each book's files as {title: [(path, formatter), ...]}"""
+def planned_files(books, output_dir, with_metadata=True, all_titles=None):
+    """Work out each book's file as {title: (path, formatter)}"""
     file_stems = build_file_stems(all_titles if all_titles is not None else books)
-    files = {}
-    for book_title in books:
-        stem = file_stems[book_title]
-        files[book_title] = []
-        if text_only:
-            files[book_title].append((os.path.join(output_dir, f'{stem}.txt'), format_text_only))
-        if with_metadata:
-            files[book_title].append((os.path.join(output_dir, f'{stem}{METADATA_FILE_SUFFIX}.txt'), format_with_metadata))
-    return files
+    suffix, formatter = ('', format_with_metadata) if with_metadata else (SIMPLE_FILE_SUFFIX, format_simple)
+    return {
+        book_title: (os.path.join(output_dir, f'{file_stems[book_title]}{suffix}.txt'), formatter)
+        for book_title in books
+    }
 
 
-def existing_files(books, output_dir, with_metadata=True, text_only=True, all_titles=None):
+def existing_files(books, output_dir, with_metadata=True, all_titles=None):
     """List the files an export would replace"""
-    files = planned_files(books, output_dir, with_metadata, text_only, all_titles)
-    return [path for book_files in files.values() for path, _ in book_files if os.path.exists(path)]
+    files = planned_files(books, output_dir, with_metadata, all_titles)
+    return [path for path, _ in files.values() if os.path.exists(path)]
 
 
-def export_books(books, output_dir, with_metadata=True, text_only=True, all_titles=None, should_cancel=None):
-    """Write the chosen formats for each book, returning (title, count, paths) for each"""
+def export_books(books, output_dir, with_metadata=True, all_titles=None, should_cancel=None):
+    """Write a file for each book, returning (title, count, path) for each"""
     os.makedirs(output_dir, exist_ok=True)
-    files = planned_files(books, output_dir, with_metadata, text_only, all_titles)
+    files = planned_files(books, output_dir, with_metadata, all_titles)
     results = []
 
     for book_title, highlights in books.items():
         if should_cancel and should_cancel():
             break
 
-        for path, formatter in files[book_title]:
-            with open(path, 'w', encoding='utf-8') as file:
-                file.write(formatter(book_title, highlights))
+        path, formatter = files[book_title]
+        with open(path, 'w', encoding='utf-8') as file:
+            file.write(formatter(book_title, highlights))
 
-        results.append((short_title(book_title), len(highlights), [path for path, _ in files[book_title]]))
+        results.append((short_title(book_title), len(highlights), path))
 
     return results
