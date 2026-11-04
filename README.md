@@ -26,6 +26,8 @@ Klippings takes `My Clippings.txt` as the input, scans it for all highlights, re
 
 The option to output highlights with or without metadata is available, as illustrated in the screenshots below.
 
+Klippings also has the ability to turn your highlights into images ready to share anywhere you like.
+
 ## Screenshots
 
 User Interface:
