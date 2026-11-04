@@ -1,7 +1,7 @@
 """Klippings desktop GUI."""
 
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import font as tkfont, messagebox, filedialog
 import customtkinter as ctk
 import os
 import queue
@@ -16,9 +16,8 @@ except ImportError:
 import json
 
 from klippings._version import __version__
-from klippings.exporter import RAW_DIR_NAME, save_highlights_to_files
+from klippings.exporter import export_books, existing_files
 from klippings.parser import parse_clippings, read_file_with_encoding
-from klippings.simplifier import SIMPLE_DIR_NAME, simplify_file
 
 NO_FILE_SELECTED = ""
 UI_POLL_INTERVAL_MS = 50
@@ -45,12 +44,16 @@ COLOR_TEXT_MUTED = ("#686054", "#918b80")
 COLOR_ACCENT = ("#d1a040", "#d1a040")
 COLOR_ACCENT_HOVER = ("#c09136", "#deb057")
 COLOR_ON_ACCENT = ("#1f1b16", "#1f1b16")
-COLOR_MARKER = ("#f6e4ab", "#4a3a16")
+COLOR_READING_TEXT = ("#332d25", "#ddd6c9")
+COLOR_MARKER = ("#f8ebc6", "#3d3118")
 COLOR_BAR_EXCLUDED = ("#c9c2b5", "#3a3733")
 
 UI_FONT_FAMILIES = {"win32": "Segoe UI", "darwin": "SF Pro Text"}
 UI_FONT = UI_FONT_FAMILIES.get(sys.platform, "Roboto")
-READING_FONT = "Georgia" if sys.platform in UI_FONT_FAMILIES else "DejaVu Serif"
+READING_FONT_CHOICES = (
+    "Palatino Linotype", "Palatino", "Book Antiqua", "TeX Gyre Pagella",
+    "Noto Serif", "Liberation Serif", "DejaVu Serif", "Georgia"
+)
 MONO_FONTS = {"win32": "Consolas", "darwin": "Menlo"}
 MONO_FONT = MONO_FONTS.get(sys.platform, "DejaVu Sans Mono")
 SHORTCUT_MODIFIER = "Command" if sys.platform == "darwin" else "Control"
@@ -60,6 +63,8 @@ BOOK_BAR_MAX_WIDTH = 216
 BOOK_TITLE_MAX_WIDTH = 248
 READING_MAX_LINE_WIDTH = 680
 READING_MARGIN = 32
+READING_FONT_SIZE = 17
+MAX_LISTED_REPLACEMENTS = 5
 
 
 def asset_path(file_name):
@@ -70,6 +75,12 @@ def asset_path(file_name):
 
 def ui_font(size=13, weight="normal"):
     return ctk.CTkFont(family=UI_FONT, size=size, weight=weight)
+
+
+def find_reading_font(window):
+    """Pick the first soft book serif installed on this system"""
+    installed = set(tkfont.families(window))
+    return next((family for family in READING_FONT_CHOICES if family in installed), "serif")
 
 
 def format_count(count, noun):
@@ -208,6 +219,7 @@ class KindleHighlightsGUI:
         self.root.minsize(760, 520)
         self.root.configure(fg_color=COLOR_PAGE)
         self.set_window_icon()
+        self.reading_font = find_reading_font(self.root)
 
         # Load saved preferences
         self.config_file = os.path.join(os.path.expanduser("~"), ".kindle_highlights_config.json")
@@ -230,8 +242,8 @@ class KindleHighlightsGUI:
 
         self.file_path_var = tk.StringVar(value=NO_FILE_SELECTED)
         self.output_path_var = tk.StringVar(value=self.last_output_dir)
-        self.script1_var = tk.BooleanVar(value=True)
-        self.script2_var = tk.BooleanVar(value=True)
+        self.with_metadata_var = tk.BooleanVar(value=True)
+        self.text_only_var = tk.BooleanVar(value=True)
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(2, weight=1)
@@ -271,7 +283,7 @@ class KindleHighlightsGUI:
         self.title_label = ctk.CTkLabel(
             header,
             text="Klippings",
-            font=ctk.CTkFont(family=READING_FONT, size=20),
+            font=ctk.CTkFont(family=self.reading_font, size=20),
             text_color=COLOR_TEXT
         )
         self.title_label.grid(row=0, column=0, padx=(24, 8), pady=12)
@@ -317,7 +329,7 @@ class KindleHighlightsGUI:
 
         title = ctk.CTkFrame(content, fg_color="transparent")
         title.grid(row=0, column=0)
-        title_font = ctk.CTkFont(family=READING_FONT, size=28)
+        title_font = ctk.CTkFont(family=self.reading_font, size=28)
         self.drop_title_prefix = ctk.CTkLabel(title, text="Drop ", font=title_font, text_color=COLOR_TEXT)
         self.drop_title_prefix.grid(row=0, column=0)
         marked = ctk.CTkLabel(title, text=" My Clippings.txt ", font=title_font, text_color=COLOR_TEXT, fg_color=COLOR_MARKER, corner_radius=2)
@@ -386,8 +398,8 @@ class KindleHighlightsGUI:
             border_spacing=0,
             wrap="word",
             fg_color="transparent",
-            text_color=COLOR_TEXT,
-            font=ctk.CTkFont(family=READING_FONT, size=16),
+            text_color=COLOR_READING_TEXT,
+            font=ctk.CTkFont(family=self.reading_font, size=READING_FONT_SIZE),
             scrollbar_button_color=COLOR_HAIRLINE,
             scrollbar_button_hover_color=COLOR_CONTROL_BORDER,
             activate_scrollbars=True
@@ -408,7 +420,7 @@ class KindleHighlightsGUI:
 
         text.tag_configure(
             "book_title",
-            font=(READING_FONT, -round(scale(28))),
+            font=(self.reading_font, -round(scale(28))),
             foreground=color(COLOR_TEXT),
             spacing1=round(scale(READING_MARGIN)),
             spacing3=round(scale(4))
@@ -422,7 +434,7 @@ class KindleHighlightsGUI:
         text.tag_configure(
             "highlight",
             background=color(COLOR_MARKER),
-            foreground=color(COLOR_TEXT)
+            foreground=color(COLOR_READING_TEXT)
         )
         text.tag_configure("highlight_line", spacing2=round(scale(6)))
         text.tag_configure(
@@ -462,12 +474,13 @@ class KindleHighlightsGUI:
         )
         self.output_browse_button.grid(row=0, column=1, padx=(4, 16))
         self.output_path_var.trace_add("write", lambda *args: self.refresh_output_button())
+        self.output_path_var.trace_add("write", lambda *args: self.update_export_state())
         self.refresh_output_button()
 
-        self.script1_check = self.format_checkbox(bar, "With metadata", self.script1_var)
-        self.script1_check.grid(row=0, column=3, padx=(8, 16))
-        self.script2_check = self.format_checkbox(bar, "Text only", self.script2_var)
-        self.script2_check.grid(row=0, column=4, padx=(0, 24))
+        self.text_only_check = self.format_checkbox(bar, "Text only", self.text_only_var)
+        self.text_only_check.grid(row=0, column=3, padx=(8, 16))
+        self.with_metadata_check = self.format_checkbox(bar, "With metadata", self.with_metadata_var)
+        self.with_metadata_check.grid(row=0, column=4, padx=(0, 24))
 
         self.process_button = ctk.CTkButton(
             bar,
@@ -575,7 +588,7 @@ class KindleHighlightsGUI:
 
     def load_preferences(self):
         """Load saved preferences from config file"""
-        self.last_output_dir = os.path.expanduser("~")
+        self.last_output_dir = ""
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
                 saved_dir = json.load(f).get('last_output_dir')
@@ -609,14 +622,15 @@ class KindleHighlightsGUI:
             pass
 
     def refresh_output_button(self):
-        self.output_browse_button.configure(text=shorten_path(self.output_path_var.get()))
+        output_dir = self.output_path_var.get()
+        self.output_browse_button.configure(text=shorten_path(output_dir) if output_dir else "Choose Folder")
 
     def browse_output_dir(self):
         """Open directory browser to select output location"""
         directory = filedialog.askdirectory(
             parent=self.root,
             title="Choose a Folder to Save To",
-            initialdir=self.output_path_var.get()
+            initialdir=self.output_path_var.get() or os.path.expanduser("~")
         )
         if directory:
             self.output_path_var.set(directory)
@@ -821,15 +835,17 @@ class KindleHighlightsGUI:
         if self.is_processing:
             return
 
-        if self.script1_var.get():
-            label = f"Export {format_count(selected_count, 'Book')}" if selected_count else "Export"
-            enabled = selected_count > 0
-        elif self.script2_var.get():
-            label = "Simplify Folder"
-            enabled = True
-        else:
+        output_dir = self.output_path_var.get()
+        enabled = False
+        if not selected_count:
             label = "Export"
-            enabled = False
+        elif not (self.with_metadata_var.get() or self.text_only_var.get()):
+            label = "Choose a Format"
+        elif not output_dir:
+            label = "Choose a Folder"
+        else:
+            label = f"Export {format_count(selected_count, 'Book')}"
+            enabled = True
 
         self.process_button.configure(
             text=label,
@@ -900,43 +916,47 @@ class KindleHighlightsGUI:
         self.log_text.configure(state="disabled")
 
     def validate_prerequisites(self):
-        """Check if required files exist"""
-        if self.script1_var.get():
-            clippings_path = self.file_path_var.get()
-            if clippings_path == NO_FILE_SELECTED or not clippings_path:
-                messagebox.showerror(
-                    "No File Chosen",
-                    "Choose your My Clippings.txt file first.",
-                    parent=self.root
-                )
-                return False
-            if not os.path.exists(clippings_path):
-                messagebox.showerror(
-                    "File Not Found",
-                    f"This file has moved or been deleted:\n\n{clippings_path}",
-                    parent=self.root
-                )
-                return False
+        """Check that the export has everything it needs"""
+        clippings_path = self.file_path_var.get()
+        if clippings_path == NO_FILE_SELECTED or not clippings_path:
+            messagebox.showerror(
+                "No File Chosen",
+                "Choose your My Clippings.txt file first.",
+                parent=self.root
+            )
+            return False
+        if not os.path.exists(clippings_path):
+            messagebox.showerror(
+                "File Not Found",
+                f"This file has moved or been deleted:\n\n{clippings_path}",
+                parent=self.root
+            )
+            return False
 
-            # Check if any books are selected
-            if not self.book_data:
-                messagebox.showerror(
-                    "No Highlights Found",
-                    "The chosen file has no highlights. Choose a different My Clippings.txt file.",
-                    parent=self.root
-                )
-                return False
+        if not self.book_data:
+            messagebox.showerror(
+                "No Highlights Found",
+                "The chosen file has no highlights. Choose a different My Clippings.txt file.",
+                parent=self.root
+            )
+            return False
 
-            selected_count = sum(1 for var in self.book_vars.values() if var.get())
-            if selected_count == 0:
-                messagebox.showwarning(
-                    "No Books Selected",
-                    "Select at least one book to export.",
-                    parent=self.root
-                )
-                return False
+        if not any(var.get() for var in self.book_vars.values()):
+            messagebox.showwarning(
+                "No Books Selected",
+                "Select at least one book to export.",
+                parent=self.root
+            )
+            return False
 
-        # Check output directory
+        if not (self.with_metadata_var.get() or self.text_only_var.get()):
+            messagebox.showwarning(
+                "No Format Chosen",
+                "Turn on Text only, With metadata, or both.",
+                parent=self.root
+            )
+            return False
+
         output_dir = self.output_path_var.get()
         if not output_dir or not os.path.isdir(output_dir):
             messagebox.showerror(
@@ -946,17 +966,26 @@ class KindleHighlightsGUI:
             )
             return False
 
-        if self.script2_var.get() and not self.script1_var.get():
-            highlights_dir = os.path.join(output_dir, RAW_DIR_NAME)
-            if not os.path.isdir(highlights_dir):
-                messagebox.showerror(
-                    "Nothing to Simplify",
-                    f"There's no {RAW_DIR_NAME} folder here yet. Turn on With metadata to create it, or choose a different folder.",
-                    parent=self.root
-                )
-                return False
-
         return True
+
+    def confirm_replacing_files(self, options):
+        """Ask before overwriting files already in the chosen folder"""
+        replaced = existing_files(
+            options['books'], options['output_dir'], options['with_metadata'], options['text_only'], options['all_titles']
+        )
+        if not replaced:
+            return True
+
+        names = [os.path.basename(path) for path in replaced[:MAX_LISTED_REPLACEMENTS]]
+        if len(replaced) > MAX_LISTED_REPLACEMENTS:
+            names.append(f"and {len(replaced) - MAX_LISTED_REPLACEMENTS:,} more")
+        return messagebox.askyesno(
+            "Replace Existing Files?",
+            f"This folder already has {format_count(len(replaced), 'file')} with the same name. Replacing can't be undone.\n\n" + "\n".join(names),
+            icon="warning",
+            default="no",
+            parent=self.root
+        )
 
     def start_processing_if_ready(self):
         if not self.is_processing and self.process_button.cget("state") == "normal":
@@ -964,26 +993,21 @@ class KindleHighlightsGUI:
 
     def start_processing(self):
         """Start the processing in a separate thread"""
-        if not (self.script1_var.get() or self.script2_var.get()):
-            messagebox.showwarning(
-                "Nothing to Export",
-                "Turn on With metadata, Text only, or both.",
-                parent=self.root
-            )
-            return
-
         if not self.validate_prerequisites():
             return
 
         # The worker thread can't read Tk variables, so it gets a snapshot of them
         options = {
-            'run_step1': self.script1_var.get(),
-            'run_step2': self.script2_var.get(),
-            'output_base': self.output_path_var.get(),
+            'with_metadata': self.with_metadata_var.get(),
+            'text_only': self.text_only_var.get(),
+            'output_dir': self.output_path_var.get(),
             'clippings_name': os.path.basename(self.file_path_var.get()),
             'books': {title: data for title, data in self.book_data.items() if self.book_vars[title].get()},
             'all_titles': list(self.book_data)
         }
+
+        if not self.confirm_replacing_files(options):
+            return
 
         self.is_processing = True
         self.cancel_requested = False
@@ -997,82 +1021,35 @@ class KindleHighlightsGUI:
         self.worker.daemon = True
         self.worker.start()
 
-    def run_step1(self, options, raw_dir):
-        """Export the selected books, returning the paths of the files written"""
-        self.log("\nExporting with metadata")
-        self.log(f"Reading: {options['clippings_name']}")
-        self.log(f"Processing {len(options['books'])} of {len(options['all_titles'])} books")
-
-        results = save_highlights_to_files(
-            options['books'], raw_dir, options['all_titles'], lambda: self.cancel_requested
-        )
-
-        self.log(f"Saved {format_count(len(results), 'book')}:")
-        for title, count, _ in results:
-            self.log(f"  {title}: {format_count(count, 'highlight')}")
-
-        if not self.cancel_requested:
-            self.log(f"Saved to: {raw_dir}")
-        return [path for _, _, path in results]
-
-    def run_step2(self, simple_dir, file_paths):
-        """Simplify the given book files, returning how many were simplified"""
-        self.log("\nExporting text only")
-
-        simplified_count = 0
-        for file_path in file_paths:
-            if self.cancel_requested:
-                break
-
-            book_name = simplify_file(file_path, simple_dir)
-            if book_name:
-                simplified_count += 1
-                self.log(f"  Simplified: {book_name}")
-            else:
-                self.log(f"  Skipped (not a Klippings export): {os.path.basename(file_path)}")
-
-        if not self.cancel_requested and simplified_count:
-            self.log(f"Saved to: {simple_dir}")
-        return simplified_count
-
     def run_processing(self, options):
-        """Execute selected processing steps"""
-        output_base = options['output_base']
-        raw_dir = os.path.join(output_base, RAW_DIR_NAME)
-        simple_dir = os.path.join(output_base, SIMPLE_DIR_NAME)
-        produced = []
+        """Export the selected books in the chosen formats"""
+        output_dir = options['output_dir']
         book_count = 0
         outcome = 'success'
         error_message = ''
 
         try:
-            # With Step 1 on, Step 2 only touches this run's files. Alone, it takes the whole folder.
-            file_paths = None
-            if options['run_step1'] and not self.cancel_requested:
-                file_paths = self.run_step1(options, raw_dir)
-                book_count = len(file_paths)
-                produced.append(RAW_DIR_NAME)
+            self.log(f"\nReading: {options['clippings_name']}")
+            self.log(f"Exporting {len(options['books'])} of {len(options['all_titles'])} books")
 
-            if options['run_step2'] and not self.cancel_requested:
-                if file_paths is None:
-                    file_paths = [
-                        os.path.join(raw_dir, name)
-                        for name in sorted(os.listdir(raw_dir))
-                        if name.lower().endswith('.txt')
-                    ]
-                simplified_count = self.run_step2(simple_dir, file_paths)
-                if simplified_count:
-                    book_count = max(book_count, simplified_count)
-                    produced.append(SIMPLE_DIR_NAME)
-                elif not self.cancel_requested:
-                    self.log("\nNo highlight files were found to simplify")
-                    outcome = 'nothing'
+            results = export_books(
+                options['books'],
+                output_dir,
+                options['with_metadata'],
+                options['text_only'],
+                options['all_titles'],
+                lambda: self.cancel_requested
+            )
+            book_count = len(results)
+
+            for title, count, _ in results:
+                self.log(f"  {title}: {format_count(count, 'highlight')}")
 
             if self.cancel_requested:
                 self.log("\nCancelled. Files already saved were kept")
                 outcome = 'cancelled'
-            elif outcome == 'success':
-                self.log("\nExport complete")
+            else:
+                self.log(f"\nExport complete: {output_dir}")
 
         except Exception as e:
             error_message = str(e)
@@ -1080,10 +1057,10 @@ class KindleHighlightsGUI:
             self.log(f"\nExport failed: {error_message}")
 
         finally:
-            summary = f"Saved {format_count(book_count, 'book')} to {' and '.join(produced)}"
-            self.run_on_ui(lambda: self.finish_processing(outcome, output_base, error_message, summary))
+            summary = f"Saved {format_count(book_count, 'book')} to {shorten_path(output_dir)}"
+            self.run_on_ui(lambda: self.finish_processing(outcome, output_dir, error_message, summary))
 
-    def finish_processing(self, outcome, output_base, error_message, summary):
+    def finish_processing(self, outcome, output_dir, error_message, summary):
         """Restore the controls and tell the user how the run went"""
         self.is_processing = False
         self.cancel_requested = False
@@ -1091,19 +1068,12 @@ class KindleHighlightsGUI:
         self.cancel_button.grid_remove()
         self.process_button.grid()
         self.update_export_state()
-        self.last_output_dir_used = output_base
+        self.last_output_dir_used = output_dir
 
         if outcome == 'success':
             self.set_status(summary, show_folder=True)
         elif outcome == 'cancelled':
             self.set_status("Export cancelled. Files already saved were kept", show_folder=True)
-        elif outcome == 'nothing':
-            self.set_status("Nothing to simplify")
-            messagebox.showwarning(
-                "Nothing to Simplify",
-                f"There are no highlight files to simplify in:\n\n{os.path.join(output_base, RAW_DIR_NAME)}",
-                parent=self.root
-            )
         elif outcome == 'error':
             self.set_status("Export failed")
             self.show_details()

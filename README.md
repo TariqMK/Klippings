@@ -48,8 +48,6 @@ Download the latest version for Windows, macOS (Apple Silicon) or Linux from the
 
 The macOS app is unsigned, so the first time you open it you will need to approve it under System Settings > Privacy & Security.
 
-All required folders will be automatically created wherever you specify. 
-
 Enjoy!
 
 ## Run From Source
@@ -66,7 +64,7 @@ Then simply run the command below to bring up the GUI:
 klippings
 ```
 
-All required folders will be automatically created. Enjoy!
+Enjoy!
 
 To run the tests:
 
@@ -90,11 +88,11 @@ The new version is worked out from the highest existing tag or release, includin
 
 ## Notes
 
-- The new text files for each related book will be placed in a new folder in the specified directory named `Highlights_by_Book`. If this folder does not exist, it will be created
-- You also have the option to strip the page location metadata and have your highlights stored cleanly for PKMS systems like Obsidian
+- The new text files are saved directly in the folder you choose, with no subfolder added
+- **Text only** saves your highlights cleanly for PKMS systems like Obsidian, as `Book Title.txt`. **With metadata** keeps each highlight's location, as `Book Title (with metadata).txt`. You can export either format or both
 - When the application is run and the highlights have been extracted, a summary of books and highlights processed will be displayed in the application itself
 - Bookmarks, notes, article clips, empty highlights, clipping limit messages and exact duplicates are left out of the export, and the application shows how many of each were skipped
-- Running the application again overwrites the existing files for the selected books
+- If a file with the same name is already in the folder, the application asks before replacing it
 - Keyboard shortcuts: `Ctrl/Cmd+O` chooses a file, `Ctrl/Cmd+Return` exports, the arrow keys move through books, `Space` includes or leaves out the current book, and `Esc` cancels an export
 
 ---

@@ -1,9 +1,9 @@
-"""Write parsed highlights to one text file per book."""
+"""Write parsed highlights to text files, one or two per book."""
 
 import os
 import re
 
-RAW_DIR_NAME = 'Highlights_by_Book'
+METADATA_FILE_SUFFIX = ' (with metadata)'
 MAX_FILE_STEM_LENGTH = 120
 RESERVED_FILE_STEMS = {'CON', 'PRN', 'AUX', 'NUL'} | {
     f'{device}{number}' for device in ('COM', 'LPT') for number in range(1, 10)
@@ -24,15 +24,15 @@ def safe_file_stem(title):
     return stem or 'Untitled'
 
 
-def build_file_names(titles):
-    """Give each title a unique file name, using the same names on every run"""
+def build_file_stems(titles):
+    """Give each title a unique file name stem, using the same stems on every run"""
     titles = list(titles)
     short_stem_counts = {}
     for title in titles:
         key = safe_file_stem(short_title(title)).casefold()
         short_stem_counts[key] = short_stem_counts.get(key, 0) + 1
 
-    file_names = {}
+    file_stems = {}
     used = set()
     for title in titles:
         stem = safe_file_stem(short_title(title))
@@ -45,9 +45,9 @@ def build_file_names(titles):
             candidate = f'{stem} ({suffix})'
             suffix += 1
         used.add(candidate.casefold())
-        file_names[title] = f'{candidate}.txt'
+        file_stems[title] = candidate
 
-    return file_names
+    return file_stems
 
 
 def format_metadata(page_info, location):
@@ -61,22 +61,56 @@ def format_metadata(page_info, location):
     return "Your Highlight"
 
 
-def save_highlights_to_files(books, output_dir=RAW_DIR_NAME, all_titles=None, should_cancel=None):
-    """Save highlights to individual book files, returning (title, count, path) for each"""
+def format_with_metadata(book_title, highlights):
+    """Format highlights with the book and location under each one"""
+    return ''.join(
+        f"{i}. {highlight_text}\n\t<{book_title}>({author}) {format_metadata(page_info, location)}\n\n"
+        for i, (highlight_text, author, page_info, location) in enumerate(highlights, start=1)
+    )
+
+
+def format_text_only(book_title, highlights):
+    """Format highlights with separators and no metadata"""
+    author = highlights[0][1]
+    header_lines = [short_title(book_title), author] if author else [short_title(book_title)]
+    numbered = [f"{i}. {highlight[0]}" for i, highlight in enumerate(highlights, start=1)]
+    return '\n'.join(header_lines) + '\n\n---\n\n' + '\n\n---\n\n'.join(numbered)
+
+
+def planned_files(books, output_dir, with_metadata=True, text_only=True, all_titles=None):
+    """Work out each book's files as {title: [(path, formatter), ...]}"""
+    file_stems = build_file_stems(all_titles if all_titles is not None else books)
+    files = {}
+    for book_title in books:
+        stem = file_stems[book_title]
+        files[book_title] = []
+        if text_only:
+            files[book_title].append((os.path.join(output_dir, f'{stem}.txt'), format_text_only))
+        if with_metadata:
+            files[book_title].append((os.path.join(output_dir, f'{stem}{METADATA_FILE_SUFFIX}.txt'), format_with_metadata))
+    return files
+
+
+def existing_files(books, output_dir, with_metadata=True, text_only=True, all_titles=None):
+    """List the files an export would replace"""
+    files = planned_files(books, output_dir, with_metadata, text_only, all_titles)
+    return [path for book_files in files.values() for path, _ in book_files if os.path.exists(path)]
+
+
+def export_books(books, output_dir, with_metadata=True, text_only=True, all_titles=None, should_cancel=None):
+    """Write the chosen formats for each book, returning (title, count, paths) for each"""
     os.makedirs(output_dir, exist_ok=True)
-    file_names = build_file_names(all_titles if all_titles is not None else books)
+    files = planned_files(books, output_dir, with_metadata, text_only, all_titles)
     results = []
 
     for book_title, highlights in books.items():
         if should_cancel and should_cancel():
             break
 
-        file_path = os.path.join(output_dir, file_names[book_title])
+        for path, formatter in files[book_title]:
+            with open(path, 'w', encoding='utf-8') as file:
+                file.write(formatter(book_title, highlights))
 
-        with open(file_path, 'w', encoding='utf-8') as file:
-            for i, (highlight_text, author, page_info, location) in enumerate(highlights, start=1):
-                file.write(f"{i}. {highlight_text}\n\t<{book_title}>({author}) {format_metadata(page_info, location)}\n\n")
-
-        results.append((short_title(book_title), len(highlights), file_path))
+        results.append((short_title(book_title), len(highlights), [path for path, _ in files[book_title]]))
 
     return results
