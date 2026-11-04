@@ -179,15 +179,3 @@ jobs:
             --title "Klippings $TAG" \
             --generate-notes \
             "${flags[@]}"
-
-      # Keeps source runs and local builds on the latest released version.
-      - name: Record version on main
-        run: |
-          file="repos/$GITHUB_REPOSITORY/contents/klippings/_version.py"
-          sha=$(gh api "$file?ref=$GITHUB_REF_NAME" --jq .sha)
-          content=$(printf '# Updated by the release workflow.\n__version__ = "%s"\n' "${TAG#v}" | base64 -w0)
-          gh api -X PUT "$file" \
-            -f message="Set version to $TAG" \
-            -f content="$content" \
-            -f sha="$sha" \
-            -f branch="$GITHUB_REF_NAME"

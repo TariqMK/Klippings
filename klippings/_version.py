@@ -1,2 +1,2 @@
-# Updated by the release workflow.
-__version__ = "2.3.1"
+# Release builds replace this with the real version.
+__version__ = "0.0.0.dev0"

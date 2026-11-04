@@ -57,9 +57,11 @@ MONO_FONTS = {"win32": "Consolas", "darwin": "Menlo"}
 MONO_FONT = MONO_FONTS.get(sys.platform, "DejaVu Sans Mono")
 SHORTCUT_MODIFIER = "Command" if sys.platform == "darwin" else "Control"
 
-SIDEBAR_WIDTH = 320
-BOOK_BAR_MAX_WIDTH = 216
-BOOK_TITLE_MAX_WIDTH = 248
+SIDEBAR_WIDTH = 270
+EXPORT_PANEL_WIDTH = 240
+BOOK_BAR_MAX_WIDTH = 166
+BOOK_TITLE_MAX_WIDTH = 196
+OUTPUT_PATH_MAX_LENGTH = 26
 READING_MAX_LINE_WIDTH = 680
 READING_MARGIN = 32
 READING_FONT_SIZE = 17
@@ -223,7 +225,7 @@ class KindleHighlightsGUI:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.title("Klippings")
         self.root.geometry("1040x680")
-        self.root.minsize(760, 520)
+        self.root.minsize(880, 520)
         self.root.configure(fg_color=COLOR_PAGE)
         self.set_window_icon()
         self.reading_font = find_reading_font(self.root)
@@ -263,7 +265,7 @@ class KindleHighlightsGUI:
         self.build_empty_state()
         self.build_book_view()
         self.build_hairline(row=3)
-        self.build_export_bar()
+        self.build_export_panel()
         self.build_status_bar()
         self.build_details()
         self.bind_shortcuts()
@@ -472,106 +474,36 @@ class KindleHighlightsGUI:
         for tag in ("book_title", "book_author", "highlight_line", "highlight_place"):
             self.reading_view._textbox.tag_configure(tag, rmargin=max(0, spare_width))
 
-    def build_export_bar(self):
-        bar = ctk.CTkFrame(self.root, height=64, corner_radius=0, fg_color="transparent")
-        bar.grid(row=4, column=0, sticky="ew")
-        bar.grid_columnconfigure(2, weight=1)
+    def build_export_panel(self):
+        """Add the column of export choices beside the reading view"""
+        divider = ctk.CTkFrame(self.book_selection_frame, width=1, corner_radius=0, fg_color=COLOR_HAIRLINE)
+        divider.grid(row=0, column=3, sticky="ns")
 
-        save_to = ctk.CTkLabel(bar, text="Save to", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY)
-        save_to.grid(row=0, column=0, padx=(24, 4), pady=(16, 8))
+        panel = ctk.CTkFrame(self.book_selection_frame, width=EXPORT_PANEL_WIDTH, corner_radius=0, fg_color=COLOR_SIDEBAR)
+        panel.grid(row=0, column=4, sticky="nsew")
+        panel.grid_propagate(False)
+        panel.grid_columnconfigure(0, weight=1)
+        panel.grid_rowconfigure(5, weight=1)
 
-        self.output_browse_button = ctk.CTkButton(
-            bar,
-            text="",
-            command=self.browse_output_dir,
-            font=ui_font(13),
-            height=32,
-            width=0,
-            corner_radius=8,
-            fg_color=COLOR_RAISED,
-            hover_color=COLOR_HAIRLINE,
-            text_color=COLOR_TEXT
-        )
-        self.output_browse_button.grid(row=0, column=1, padx=(4, 16))
-        self.output_path_var.trace_add("write", lambda *args: self.refresh_output_button())
-        self.output_path_var.trace_add("write", lambda *args: self.update_export_state())
-        self.refresh_output_button()
+        self.create_text_check = self.option_checkbox(panel, "Text files", self.create_text_var, weight="bold")
+        self.create_text_check.grid(row=0, column=0, padx=16, pady=(18, 0), sticky="w")
+        self.with_metadata_check = self.option_checkbox(panel, "Include page & location", self.with_metadata_var, text_color=COLOR_TEXT_SECONDARY)
+        self.with_metadata_check.grid(row=1, column=0, padx=16, pady=(10, 0), sticky="w")
 
-        self.process_button = ctk.CTkButton(
-            bar,
-            text="Export",
-            command=self.start_processing,
-            font=ui_font(14, "bold"),
-            height=36,
-            width=148,
-            corner_radius=8,
-            fg_color=COLOR_ACCENT,
-            hover_color=COLOR_ACCENT_HOVER,
-            text_color=COLOR_ON_ACCENT,
-            text_color_disabled=COLOR_TEXT_MUTED
-        )
-        self.process_button.grid(row=0, column=5, padx=(0, 24))
-
-        self.cancel_button = ctk.CTkButton(
-            bar,
-            text="Cancel",
-            command=self.cancel_processing,
-            font=ui_font(14),
-            height=36,
-            width=148,
-            corner_radius=8,
-            fg_color=COLOR_RAISED,
-            hover_color=COLOR_HAIRLINE,
-            text_color=COLOR_TEXT,
-            state="disabled"
-        )
-        self.cancel_button.grid(row=0, column=5, padx=(0, 24))
-        self.cancel_button.grid_remove()
-
-        self.build_export_options(bar)
-
-    def option_checkbox(self, master, text, variable):
-        return ctk.CTkCheckBox(
-            master,
-            text=text,
-            variable=variable,
-            font=ui_font(13),
-            text_color=COLOR_TEXT,
-            checkbox_width=18,
-            checkbox_height=18,
-            corner_radius=4,
-            border_width=1,
-            fg_color=COLOR_ACCENT,
-            hover_color=COLOR_ACCENT_HOVER,
-            border_color=COLOR_CONTROL_BORDER,
-            checkmark_color=COLOR_ON_ACCENT
-        )
-
-    def build_export_options(self, bar):
-        """Add the choice of what to export, with each one's details hidden until it's wanted"""
-        options = ctk.CTkFrame(bar, fg_color="transparent")
-        options.grid(row=1, column=0, columnspan=6, padx=24, pady=(0, 14), sticky="w")
-
-        self.create_text_check = self.option_checkbox(options, "Text files", self.create_text_var)
-        self.create_text_check.grid(row=0, column=0)
-        self.with_metadata_check = self.option_checkbox(options, "Include page & location", self.with_metadata_var)
-        self.with_metadata_check.grid(row=0, column=1, padx=(16, 0))
-
-        self.create_images_check = self.option_checkbox(options, "Quote images", self.create_images_var)
-        self.create_images_check.grid(row=0, column=2, padx=(40, 0))
+        self.create_images_check = self.option_checkbox(panel, "Quote images", self.create_images_var, weight="bold")
+        self.create_images_check.grid(row=2, column=0, padx=16, pady=(22, 0), sticky="w")
         if not self.fonts:
-            self.create_images_check.configure(text="Quote images (no fonts found)", state="disabled")
+            self.create_images_check.configure(text="Quote images (no fonts)", state="disabled")
 
-        self.image_font_label = ctk.CTkLabel(options, text="Font", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY)
-        self.image_font_label.grid(row=0, column=3, padx=(16, 8))
+        self.image_font_label = ctk.CTkLabel(panel, text="Font", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY, height=20)
+        self.image_font_label.grid(row=3, column=0, padx=16, pady=(10, 4), sticky="w")
         self.image_font_menu = ctk.CTkOptionMenu(
-            options,
+            panel,
             variable=self.image_font_var,
             values=list(self.fonts) or [DEFAULT_FONT],
             font=ui_font(13),
             dropdown_font=ui_font(13),
             height=32,
-            width=130,
             corner_radius=8,
             fg_color=COLOR_RAISED,
             button_color=COLOR_RAISED,
@@ -581,11 +513,80 @@ class KindleHighlightsGUI:
             dropdown_hover_color=COLOR_HAIRLINE,
             dropdown_text_color=COLOR_TEXT
         )
-        self.image_font_menu.grid(row=0, column=4)
+        self.image_font_menu.grid(row=4, column=0, padx=16, sticky="ew")
+
+        save_to = ctk.CTkLabel(panel, text="Save to", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY, height=20)
+        save_to.grid(row=6, column=0, padx=16, pady=(12, 4), sticky="w")
+
+        self.output_browse_button = ctk.CTkButton(
+            panel,
+            text="",
+            command=self.browse_output_dir,
+            font=ui_font(13),
+            height=32,
+            width=0,
+            corner_radius=8,
+            anchor="w",
+            fg_color=COLOR_RAISED,
+            hover_color=COLOR_HAIRLINE,
+            text_color=COLOR_TEXT
+        )
+        self.output_browse_button.grid(row=7, column=0, padx=16, sticky="ew")
+        self.output_path_var.trace_add("write", lambda *args: self.refresh_output_button())
+        self.output_path_var.trace_add("write", lambda *args: self.update_export_state())
+        self.refresh_output_button()
+
+        self.process_button = ctk.CTkButton(
+            panel,
+            text="Export",
+            command=self.start_processing,
+            font=ui_font(14, "bold"),
+            height=40,
+            width=0,
+            corner_radius=8,
+            fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER,
+            text_color=COLOR_ON_ACCENT,
+            text_color_disabled=COLOR_TEXT_MUTED
+        )
+        self.process_button.grid(row=8, column=0, padx=16, pady=(12, 16), sticky="ew")
+
+        self.cancel_button = ctk.CTkButton(
+            panel,
+            text="Cancel",
+            command=self.cancel_processing,
+            font=ui_font(14),
+            height=40,
+            width=0,
+            corner_radius=8,
+            fg_color=COLOR_RAISED,
+            hover_color=COLOR_HAIRLINE,
+            text_color=COLOR_TEXT,
+            state="disabled"
+        )
+        self.cancel_button.grid(row=8, column=0, padx=16, pady=(12, 16), sticky="ew")
+        self.cancel_button.grid_remove()
 
         for variable in (self.create_text_var, self.with_metadata_var, self.create_images_var):
             variable.trace_add("write", lambda *args: self.refresh_export_options())
         self.refresh_export_options()
+
+    def option_checkbox(self, master, text, variable, weight="normal", text_color=COLOR_TEXT):
+        return ctk.CTkCheckBox(
+            master,
+            text=text,
+            variable=variable,
+            font=ui_font(13, weight),
+            text_color=text_color,
+            checkbox_width=18,
+            checkbox_height=18,
+            corner_radius=4,
+            border_width=1,
+            fg_color=COLOR_ACCENT,
+            hover_color=COLOR_ACCENT_HOVER,
+            border_color=COLOR_CONTROL_BORDER,
+            checkmark_color=COLOR_ON_ACCENT
+        )
 
     def refresh_export_options(self):
         """Only show the details of what's being exported, and keep the preview in step"""
@@ -694,7 +695,7 @@ class KindleHighlightsGUI:
 
     def refresh_output_button(self):
         output_dir = self.output_path_var.get()
-        self.output_browse_button.configure(text=shorten_path(output_dir) if output_dir else "Choose Folder")
+        self.output_browse_button.configure(text=shorten_path(output_dir, OUTPUT_PATH_MAX_LENGTH) if output_dir else "Choose Folder")
 
     def browse_output_dir(self):
         """Open directory browser to select output location"""
