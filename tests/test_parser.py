@@ -13,13 +13,17 @@ def dated(body, location, added_on):
     return f"Book A (Auth A)\n- Your Highlight on page 5 | location {location} | Added on {added_on}\n\n{body}\n==========\n"
 
 
-def open_as_files(tmp_path, *contents):
+def parse_clipping_files_from(tmp_path, *contents):
     paths = []
     for number, content in enumerate(contents):
         path = tmp_path / f"{number}.txt"
         path.write_text(content, encoding="utf-8")
         paths.append(str(path))
-    return parse_clipping_files(paths)[0]
+    return parse_clipping_files(paths)
+
+
+def open_as_files(tmp_path, *contents):
+    return parse_clipping_files_from(tmp_path, *contents)[0]
 
 
 def bodies(books):
@@ -64,15 +68,50 @@ def test_a_single_file_keeps_its_own_order(tmp_path):
     assert bodies(open_as_files(tmp_path, content)) == ["newer", "older"]
 
 
-def test_several_files_merge_books_and_keep_repeated_highlights(tmp_path):
+def test_several_files_merge_books_and_drop_exact_copies(tmp_path):
     first = tmp_path / "first.txt"
     second = tmp_path / "second.txt"
     first.write_text(entry("Book A (Auth A)", MODERN, "shared") + entry("Book A (Auth A)", MODERN, "only first"), encoding="utf-8")
     second.write_text(entry("Book A (Auth A)", MODERN, "shared") + entry("Book B (Auth B)", MODERN, "only second"), encoding="utf-8")
     books, stats = parse_clipping_files([str(first), str(second)])
-    assert sorted(h[0] for h in books["Book A"]) == ["only first", "shared", "shared"]
+    assert sorted(h[0] for h in books["Book A"]) == ["only first", "shared"]
     assert [h[0] for h in books["Book B"]] == ["only second"]
-    assert stats["highlight"] == 4
+    assert (stats["highlight"], stats["copy"]) == (3, 1)
+
+
+def test_highlights_that_differ_in_any_detail_are_not_copies(tmp_path):
+    original = entry("Book A (Auth A)", MODERN, "same")
+    differences = {
+        "text": entry("Book A (Auth A)", MODERN, "other"),
+        "book": entry("Book B (Auth A)", MODERN, "same"),
+        "author": entry("Book A (Auth B)", MODERN, "same"),
+        "page": entry("Book A (Auth A)", "Your Highlight on page 6 | location 70-71", "same"),
+        "location": entry("Book A (Auth A)", "Your Highlight on page 5 | location 70-72", "same"),
+        "date": dated("same", "70-71", "Tuesday, 2 January 2024 10:00:00"),
+    }
+    for name, different in differences.items():
+        books, stats = parse_clipping_files_from(tmp_path, original, different)
+        assert sum(len(highlights) for highlights in books.values()) == 2, name
+        assert stats["copy"] == 0, name
+
+
+def test_repeats_within_a_file_survive_a_merge(tmp_path):
+    repeated = entry("Book A (Auth A)", MODERN, "hello") * 2
+    for contents in ((repeated, repeated), (entry("Book A (Auth A)", MODERN, "hello"), repeated)):
+        books, stats = parse_clipping_files_from(tmp_path, *contents)
+        assert bodies(books) == ["hello", "hello"]
+    assert stats["copy"] == 1
+
+
+def test_copies_are_found_across_encodings_and_line_endings(tmp_path):
+    text = entry("Book A (Auth A)", MODERN, "café")
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    first.write_bytes(text.encode("cp1252"))
+    second.write_bytes(b"\xef\xbb\xbf" + text.replace("\n", "\r\n").encode("utf-8"))
+    books, stats = parse_clipping_files([str(first), str(second)])
+    assert bodies(books) == ["café"]
+    assert stats["copy"] == 1
 
 
 def test_several_files_stay_separate_without_a_final_separator_or_shared_encoding(tmp_path):

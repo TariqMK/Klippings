@@ -102,40 +102,57 @@ def in_order_taken(highlights, added_dates):
     return [highlight for highlight, _ in pairs]
 
 
-def parse_clippings(content, sort_highlights=False):
-    """Organize highlights by book, returning (books, counts of each outcome)"""
+def parse_contents(contents, sort_highlights=False):
+    """Organize the highlights of each file's text by book, returning (books, counts of each outcome)
+
+    A highlight identical to one in an earlier file is a copy and is left out, while
+    repeats within one file are kept, so a merge holds as many as any one file does.
+    """
     books = {}
     added_dates = {}
     stats = Counter()
+    seen_in_earlier_files = Counter()
 
-    for entry in ENTRY_SEPARATOR.split(content):
-        lines = entry.strip().lstrip('﻿').strip().split('\n')
-        if lines == ['']:
-            continue
+    for content in contents:
+        seen_in_this_file = Counter()
 
-        entry_type = None
-        if len(lines) >= 2:
-            entry_type, page_info, location_info = parse_metadata(lines[1].strip())
+        for entry in ENTRY_SEPARATOR.split(content):
+            lines = entry.strip().lstrip('﻿').strip().split('\n')
+            if lines == ['']:
+                continue
 
-        if entry_type is None:
-            stats['unrecognised'] += 1
-            continue
-        if entry_type != 'highlight':
-            stats[entry_type] += 1
-            continue
+            entry_type = None
+            if len(lines) >= 2:
+                entry_type, page_info, location_info = parse_metadata(lines[1].strip())
 
-        highlight_text = '\n'.join(lines[2:]).strip()
-        if not highlight_text:
-            stats['empty'] += 1
-            continue
-        if highlight_text.startswith(CLIPPING_LIMIT):
-            stats['clipping_limit'] += 1
-            continue
+            if entry_type is None:
+                stats['unrecognised'] += 1
+                continue
+            if entry_type != 'highlight':
+                stats[entry_type] += 1
+                continue
 
-        book_title, author = split_title_and_author(lines[0].strip())
-        books.setdefault(book_title, []).append((highlight_text, author, page_info, location_info))
-        added_dates.setdefault(book_title, []).append(parse_added_on(lines[1]))
-        stats['highlight'] += 1
+            highlight_text = '\n'.join(lines[2:]).strip()
+            if not highlight_text:
+                stats['empty'] += 1
+                continue
+            if highlight_text.startswith(CLIPPING_LIMIT):
+                stats['clipping_limit'] += 1
+                continue
+
+            # The first two lines hold the book, author, page, location and date exactly as written
+            identity = (lines[0].strip(), lines[1].strip(), highlight_text)
+            seen_in_this_file[identity] += 1
+            if seen_in_this_file[identity] <= seen_in_earlier_files[identity]:
+                stats['copy'] += 1
+                continue
+
+            book_title, author = split_title_and_author(lines[0].strip())
+            books.setdefault(book_title, []).append((highlight_text, author, page_info, location_info))
+            added_dates.setdefault(book_title, []).append(parse_added_on(lines[1]))
+            stats['highlight'] += 1
+
+        seen_in_earlier_files |= seen_in_this_file
 
     if sort_highlights:
         books = {title: in_order_taken(highlights, added_dates[title]) for title, highlights in books.items()}
@@ -143,7 +160,12 @@ def parse_clippings(content, sort_highlights=False):
     return books, stats
 
 
+def parse_clippings(content, sort_highlights=False):
+    """Organize one file's highlights by book, returning (books, counts of each outcome)"""
+    return parse_contents([content], sort_highlights)
+
+
 def parse_clipping_files(filenames):
     """Parse several files as one, merging shared books and putting highlights in the order taken"""
-    content = '\n==========\n'.join(read_file_with_encoding(filename) for filename in filenames)
-    return parse_clippings(content, sort_highlights=len(filenames) > 1)
+    contents = [read_file_with_encoding(filename) for filename in filenames]
+    return parse_contents(contents, sort_highlights=len(filenames) > 1)

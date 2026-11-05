@@ -28,6 +28,7 @@ SKIPPED_ENTRY_LABELS = {
     'clip': "article clips",
     'empty': "empty highlights",
     'clipping_limit': "clipping limit messages",
+    'copy': "copies already in another file",
     'unrecognised': "unrecognised entries"
 }
 
