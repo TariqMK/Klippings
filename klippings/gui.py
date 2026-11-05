@@ -404,7 +404,8 @@ class KindleHighlightsGUI:
         )
         self.books_scroll_frame.grid(row=1, column=0, columnspan=2, padx=(4, 0), pady=(0, 8), sticky="nsew")
         self.books_scroll_frame.grid_columnconfigure(0, weight=1)
-        self.books_scroll_frame.bind("<Configure>", lambda event: self.refresh_book_scrollbar())
+        # add="+" keeps CustomTkinter's own binding, which sets how far the list can scroll
+        self.books_scroll_frame.bind("<Configure>", lambda event: self.refresh_book_scrollbar(), add="+")
 
         divider = ctk.CTkFrame(self.book_selection_frame, width=1, corner_radius=0, fg_color=COLOR_HAIRLINE)
         divider.grid(row=0, column=1, sticky="ns")
@@ -777,6 +778,8 @@ class KindleHighlightsGUI:
         """Remove the open books from the window"""
         for widget in self.books_scroll_frame.winfo_children():
             widget.destroy()
+        # Back to the top, as Tk won't resize the list for its next books while it's scrolled out of view
+        self.books_scroll_frame._parent_canvas.yview_moveto(0)
         self.book_vars.clear()
         self.book_rows.clear()
         self.book_data = {}
