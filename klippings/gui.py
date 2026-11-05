@@ -313,8 +313,12 @@ class KindleHighlightsGUI:
         self.file_label.grid(row=0, column=3, padx=(8, 12))
 
         self.change_file_button = self.quiet_button(header, "Choose Another File", self.browse_file)
-        self.change_file_button.grid(row=0, column=4, padx=(0, 24))
+        self.change_file_button.grid(row=0, column=4, padx=(0, 4))
         self.change_file_button.grid_remove()
+
+        self.clear_files_button = self.quiet_button(header, "Clear Files", self.clear_files)
+        self.clear_files_button.grid(row=0, column=5, padx=(0, 24))
+        self.clear_files_button.grid_remove()
 
     def quiet_button(self, master, text, command, **kwargs):
         return ctk.CTkButton(
@@ -656,6 +660,7 @@ class KindleHighlightsGUI:
             file_menu = tk.Menu(menu_bar, tearoff=False)
             file_menu.add_command(label="Open…", accelerator="Command-O", command=self.browse_file)
             file_menu.add_command(label="Export", accelerator="Command-Return", command=self.start_processing_if_ready)
+            file_menu.add_command(label="Clear Files", command=self.clear_files)
             menu_bar.add_cascade(label="File", menu=file_menu)
             self.root.configure(menu=menu_bar)
 
@@ -758,19 +763,36 @@ class KindleHighlightsGUI:
             self.log(f"File {how}: {os.path.basename(path)}")
         self.parse_and_show_books(self.file_paths)
 
-    def parse_and_show_books(self, file_paths):
-        """Parse the clippings files and display book selection"""
-        single_file = len(file_paths) == 1
-        self.log("Reading the file" if single_file else "Reading the files")
+    def clear_files(self):
+        """Let go of the open clippings files and return to the starting screen, keeping export choices"""
+        if self.is_processing:
+            return
+        self.file_paths = []
+        self.clear_books()
+        self.clear_log()
+        self.set_status("")
+        self.update_export_state()
 
-        # Clear the previous books so they can't be processed by mistake
+    def clear_books(self):
+        """Remove the open books from the window"""
         for widget in self.books_scroll_frame.winfo_children():
             widget.destroy()
         self.book_vars.clear()
         self.book_rows.clear()
         self.book_data = {}
         self.selected_title = None
+        self.reading_view.configure(state="normal")
+        self.reading_view.delete("1.0", "end")
+        self.reading_view.configure(state="disabled")
         self.show_book_view(False)
+
+    def parse_and_show_books(self, file_paths):
+        """Parse the clippings files and display book selection"""
+        single_file = len(file_paths) == 1
+        self.log("Reading the file" if single_file else "Reading the files")
+
+        # Clear the previous books so they can't be processed by mistake
+        self.clear_books()
 
         try:
             books, stats = parse_clipping_files(file_paths)
@@ -839,9 +861,11 @@ class KindleHighlightsGUI:
             self.empty_state.grid_remove()
             self.book_selection_frame.grid()
             self.change_file_button.grid()
+            self.clear_files_button.grid()
         else:
             self.book_selection_frame.grid_remove()
             self.change_file_button.grid_remove()
+            self.clear_files_button.grid_remove()
             self.file_label.configure(text="")
             self.empty_state.grid()
 
@@ -1010,14 +1034,6 @@ class KindleHighlightsGUI:
                 parent=self.root
             )
             return False
-        missing = [path for path in self.file_paths if not os.path.exists(path)]
-        if missing:
-            messagebox.showerror(
-                "File Not Found",
-                "These files have moved or been deleted:\n\n" + list_file_names(missing),
-                parent=self.root
-            )
-            return False
 
         if not self.book_data:
             messagebox.showerror(
@@ -1111,6 +1127,7 @@ class KindleHighlightsGUI:
         self.process_button.grid_remove()
         self.cancel_button.configure(state="normal")
         self.cancel_button.grid()
+        self.clear_files_button.configure(state="disabled")
         self.set_status("Exporting…")
 
         self.worker = threading.Thread(target=self.run_processing, args=(options,))
@@ -1181,6 +1198,7 @@ class KindleHighlightsGUI:
         self.cancel_button.configure(state="disabled")
         self.cancel_button.grid_remove()
         self.process_button.grid()
+        self.clear_files_button.configure(state="normal")
         self.update_export_state()
         self.last_output_dir_used = output_dir
 
