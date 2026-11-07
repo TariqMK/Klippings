@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Klippings app icon, simplified for 16 to 32 px: wider gap, thicker handles, larger knobs. -->
+  <!-- Uses only rect and circle so assets/make_assets.py can render it with Pillow. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="#262421"/>
+  <rect x="360" y="260" width="464" height="204" rx="28" fill="#d1a040"/>
+  <rect x="200" y="528" width="464" height="204" rx="28" fill="#d1a040"/>
+  <rect x="360" y="196" width="72" height="268" rx="28" fill="#efe9de"/>
+  <rect x="396" y="196" width="36" height="268" fill="#efe9de"/>
+  <circle cx="396" cy="196" r="96" fill="#efe9de"/>
+  <rect x="592" y="528" width="72" height="300" rx="28" fill="#efe9de"/>
+  <rect x="592" y="528" width="36" height="300" fill="#efe9de"/>
+  <circle cx="628" cy="828" r="96" fill="#efe9de"/>
+</svg>

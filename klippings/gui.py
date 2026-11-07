@@ -688,7 +688,7 @@ class KindleHighlightsGUI:
     def set_window_icon(self):
         """Show the Klippings logo on the window, when the logo is available"""
         is_windows = sys.platform.startswith("win")
-        icon_path = asset_path("Klippings Logo.ico" if is_windows else "Klippings Logo.png")
+        icon_path = asset_path(os.path.join("icon", "klippings.ico" if is_windows else "klippings.png"))
         if not os.path.exists(icon_path):
             return
         try:

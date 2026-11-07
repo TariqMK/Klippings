@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Klippings app icon (master). A two-line text selection with Kindle-style handles. -->
+  <!-- Uses only rect and circle so assets/make_assets.py can render it with Pillow. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="#262421"/>
+  <rect x="376" y="276" width="448" height="220" rx="28" fill="#d1a040"/>
+  <rect x="200" y="528" width="448" height="220" rx="28" fill="#d1a040"/>
+  <rect x="376" y="214" width="56" height="282" rx="28" fill="#efe9de"/>
+  <rect x="404" y="214" width="28" height="282" fill="#efe9de"/>
+  <circle cx="404" cy="214" r="80" fill="#efe9de"/>
+  <rect x="592" y="528" width="56" height="282" rx="28" fill="#efe9de"/>
+  <rect x="592" y="528" width="28" height="282" fill="#efe9de"/>
+  <circle cx="620" cy="810" r="80" fill="#efe9de"/>
+</svg>

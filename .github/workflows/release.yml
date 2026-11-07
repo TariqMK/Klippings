@@ -84,12 +84,15 @@ jobs:
           - os: windows-latest
             target: windows-x64
             mode: --onefile
+            icon: assets/icon/klippings.ico
           - os: macos-latest
             target: macos-arm64
             mode: --onedir # PyInstaller is dropping --onefile for macOS app bundles.
+            icon: assets/icon/klippings.icns
           - os: ubuntu-24.04
             target: linux-x64
             mode: --onefile
+            icon: assets/icon/klippings.png
     env:
       TAG: ${{ needs.version.outputs.tag }}
       TARGET: ${{ matrix.target }}
@@ -124,11 +127,15 @@ jobs:
           pyinstaller --noconfirm ${{ matrix.mode }} --windowed
           --name Klippings --paths .
           --collect-data customtkinter --collect-all tkinterdnd2
-          --icon "assets/Klippings Logo.ico"
-          --add-data "assets/Klippings Logo.ico:assets"
-          --add-data "assets/Klippings Logo.png:assets"
+          --icon "${{ matrix.icon }}"
+          --add-data "assets/icon/klippings.ico:assets/icon"
+          --add-data "assets/icon/klippings.png:assets/icon"
           --add-data "klippings/fonts:klippings/fonts"
           klippings/__main__.py
+
+      - name: Check the app icon is inside the bundle (macOS)
+        if: runner.os == 'macOS'
+        run: ls dist/Klippings.app/Contents/Resources/*.icns
 
       - name: Package
         shell: bash

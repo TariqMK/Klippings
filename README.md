@@ -1,10 +1,8 @@
-# README
+![Klippings. Turn Kindle clippings into notes and quotes.](assets/banner.png)
 
 _**Disclaimer:** Most if not all of the code here has been written in Python with the help of AI_
 
 ---
-
-![klippings_logo_v6](https://github.com/user-attachments/assets/5ce2ea13-acf9-4781-9b3d-4fdb4e93fa4d)
 
 ## What is Klippings?
 
@@ -13,6 +11,11 @@ Klippings is a Kindle Highlight Processor aimed for use with Kindle's `My Clippi
 Klippings exists to aid anyone who wishes for more granular control over their highlights and to be able to export and store them in an organised, systematic manner.
 
 Your original `My Clippings.txt` file is not amended in any way.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/main-dark.png">
+  <img src="assets/screenshots/main-light.png" alt="Klippings with a clippings file open: the book list on the left, the highlights of Walden in the middle, and the export options on the right" width="840">
+</picture>
 
 ---
 
@@ -30,11 +33,16 @@ Klippings also has the ability to turn your highlights into images ready to shar
 
 ## Screenshots
 
-User Interface:
+Quote images on, page and location off. The preview hides page and location to match the export:
 
-<p align="center">
-<img width="800" alt="Klippings user interface" src="assets/Screenshot - General.jpg" />
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/images-and-simple-dark.png">
+  <img src="assets/screenshots/images-and-simple-light.png" alt="Klippings with Quote images selected and Include page & location cleared: the font menu shows Vollkorn and the preview shows the highlights without page and location" width="840">
+</picture>
+
+Quote Image (Sample):
+
+<img src="assets/screenshots/quote-image.webp" alt="A 1080 x 1350 quote image of a highlight from Walden, with the book and author line at the bottom" width="360">
 
 Standard Export (Sample):
 
@@ -78,6 +86,23 @@ To run the tests:
 pip install ".[dev]"
 pytest
 ```
+
+---
+
+## Update the Screenshots
+
+The screenshots come from the real app with sample clippings from public-domain books. Retake them after a change to the interface.
+
+**Note:** The script needs Windows and a screen of at least 2240 x 1380 px. Do not cover the Klippings window while it runs.
+
+1. Set `VERSION` at the top of `assets/make_screenshots.py` to the newest release tag.
+2. From the repository root, run:
+
+```
+python assets/make_screenshots.py
+```
+
+The script writes the images to `assets/screenshots`.
 
 ---
 
