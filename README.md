@@ -12,6 +12,8 @@ Klippings exists to aid anyone who wishes for more granular control over their h
 
 Your original `My Clippings.txt` file is not amended in any way.
 
+Works offline. Sends no data. It goes online only when you click **Check for Updates**.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/main-dark.png">
   <img src="assets/screenshots/main-light.png" alt="Klippings with a clippings file open: the book list on the left, the highlights of Walden in the middle, and the export options on the right" width="840">
@@ -62,6 +64,16 @@ The macOS app is unsigned, so the first time you open it you will need to approv
 
 Enjoy!
 
+To find out if a newer version is available, click **Check for Updates** next to the version number. If there is one, select **Yes** to open its download page in your browser.
+
+## Privacy
+
+- Klippings works offline. Everything it does with your clippings happens on your computer.
+- It has no telemetry, analytics, crash reports or tracking.
+- Your highlights, text files and quote images are saved only in the folder you choose.
+- Your settings (the last folder you used) are saved in `.kindle_highlights_config.json` in your home folder.
+- The app makes one network connection, and only when you click **Check for Updates**. It sends one request to `api.github.com` to read the latest release number. It sends no data about you or your files, and it keeps nothing. GitHub sees your IP address, as with any web request.
+
 ## Run From Source
 
 Install the project and its required libraries from the repository root:
@@ -78,7 +90,7 @@ klippings
 
 Enjoy!
 
-When run from source, the application shows the development version, `v0.0.0.dev0`. Only release builds show a real version number.
+When run from source, the application shows the development version, `v0.0.0.dev0`. Only release builds show a real version number. **Check for Updates** doesn't go online in a development build.
 
 To run the tests:
 

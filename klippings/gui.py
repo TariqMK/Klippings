@@ -8,6 +8,7 @@ import queue
 import subprocess
 import sys
 import threading
+import webbrowser
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
 except ImportError:
@@ -15,6 +16,7 @@ except ImportError:
     DND_FILES = None
 import json
 
+from klippings import updates
 from klippings._version import __version__
 from klippings.exporter import export_books, existing_files
 from klippings.images import DEFAULT_FONT, existing_image_folders, export_images, list_fonts
@@ -309,6 +311,9 @@ class KindleHighlightsGUI:
         )
         self.version_label.grid(row=0, column=1, pady=(6, 12))
 
+        self.update_button = self.quiet_button(header, "Check for Updates", self.check_for_updates)
+        self.update_button.grid(row=0, column=2, padx=(8, 0), pady=(6, 12), sticky="w")
+
         self.file_label = ctk.CTkLabel(header, text="", font=ui_font(13), text_color=COLOR_TEXT_SECONDARY)
         self.file_label.grid(row=0, column=3, padx=(8, 12))
 
@@ -319,6 +324,47 @@ class KindleHighlightsGUI:
         self.clear_files_button = self.quiet_button(header, "Clear Files", self.clear_files)
         self.clear_files_button.grid(row=0, column=5, padx=(0, 24))
         self.clear_files_button.grid_remove()
+
+    def check_for_updates(self):
+        """Ask GitHub for the latest release, only when the user clicks the button"""
+        if updates.is_development_version(__version__):
+            messagebox.showinfo(
+                "Check for Updates",
+                "This is a development build, so there is no release version to compare.",
+                parent=self.root
+            )
+            return
+
+        self.update_button.configure(state="disabled", text="Checking…")
+
+        def worker():
+            try:
+                result = updates.fetch_latest_release(__version__)
+            except (OSError, ValueError):
+                result = None
+            self.run_on_ui(lambda: self.show_update_result(result))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_update_result(self, result):
+        self.update_button.configure(state="normal", text="Check for Updates")
+        if result is None:
+            messagebox.showwarning(
+                "Check for Updates",
+                "Klippings couldn't reach GitHub. Check your internet connection and try again.",
+                parent=self.root
+            )
+            return
+
+        latest_tag, page_url = result
+        if not updates.is_newer(latest_tag, __version__):
+            messagebox.showinfo("Check for Updates", f"You have the latest version (v{__version__}).", parent=self.root)
+        elif messagebox.askyesno(
+            "Update Available",
+            f"Klippings {latest_tag} is available. You have v{__version__}.\n\nOpen the download page?",
+            parent=self.root
+        ):
+            webbrowser.open(page_url)
 
     def quiet_button(self, master, text, command, **kwargs):
         return ctk.CTkButton(

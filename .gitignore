@@ -1,5 +1,12 @@
 Meta/
 
+# AI tool files
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.cursor/
+AGENTS.md
+
 # Python
 __pycache__/
 *.py[cod]

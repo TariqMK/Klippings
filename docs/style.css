@@ -161,6 +161,7 @@ h1, h2, h3, p { margin: 0; }
 .app-name { font: 400 20px/1 var(--serif); }
 .app-version { font: 400 11px var(--sans); color: var(--muted); vertical-align: super; margin-left: 4px; }
 .app-header-links { display: flex; gap: 20px; color: var(--text-2); }
+.app-update { font: 400 13px var(--sans); color: var(--text-2); margin-left: 16px; }
 .app-body { display: grid; grid-template-columns: 240px minmax(0, 1fr) 216px; height: 452px; }
 .app-books { background: #121110; border-right: 1px solid #2c2a26; padding: 16px 8px 16px 8px; min-width: 0; }
 .books-head { display: flex; justify-content: space-between; padding: 0 8px 12px; color: var(--muted); font-size: 12px; }

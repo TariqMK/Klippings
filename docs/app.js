@@ -192,7 +192,7 @@
       }
       const date = new Date(release.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
       $("download-version").textContent = `${release.tag_name} · ${date}`;
-      $("hero-meta").textContent = `${release.tag_name} · Free · Windows, macOS and Linux`;
+      $("hero-meta").textContent = `${release.tag_name} · Free · Offline · No tracking · Windows, macOS and Linux`;
     })
     .catch(() => {});
 })();
