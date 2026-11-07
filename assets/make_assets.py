@@ -6,6 +6,9 @@ Writes, in assets/icon/:
   klippings.icns  16 to 1024 px, including the @2x sizes
 Writes, in assets/:
   banner.png      README banner, 1280 x 320 drawn at 2x (2560 x 640)
+  social-card.png GitHub social preview, 1280 x 640, everything 80 px inside each edge
+Writes, in docs/ (the GitHub Pages site):
+  icon.svg, apple-touch-icon.png (180 px, no transparency), social-card.png
 
 Sizes 32 px and below come from klippings-small.svg; larger sizes from klippings.svg.
 The SVGs may use only <rect> (x, y, width, height, rx, fill) and <circle> (cx, cy, r, fill).
@@ -16,13 +19,15 @@ Run from the project root:  python assets/make_assets.py   (needs Pillow)
 
 import io
 import os
+import shutil
 import struct
 import xml.etree.ElementTree as ET
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 ASSETS_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_DIR = os.path.join(ASSETS_DIR, "icon")
+DOCS_DIR = os.path.join(os.path.dirname(ASSETS_DIR), "docs")
 MASTER = os.path.join(ICON_DIR, "klippings.svg")
 SMALL = os.path.join(ICON_DIR, "klippings-small.svg")
 SMALL_MAX = 32
@@ -40,6 +45,9 @@ COLOR_BACKGROUND = "#121110"  # COLOR_SIDEBAR, the darkest background
 COLOR_BORDER = "#2c2a26"  # COLOR_HAIRLINE
 COLOR_TEXT = "#efe9de"
 COLOR_TEXT_SECONDARY = "#aaa398"
+COLOR_TEXT_MUTED = "#918b80"
+COLOR_TILE = "#262421"  # The icon's own tile colour
+SUBLINE = "Windows · macOS · Linux"
 
 
 def render(svg_path, size):
@@ -124,6 +132,50 @@ def make_banner(path, scale=2):
     banner.save(path)
 
 
+def make_social_card(path):
+    """GitHub's repo card layout: icon and name on top, tagline and subline centred below"""
+    width, height, safe = 1280, 640, 80
+    icon_size, icon_top, icon_gap = 168, 150, 40
+    card = Image.new("RGBA", (width, height), COLOR_BACKGROUND)
+    draw = ImageDraw.Draw(card)
+
+    name_font = ImageFont.truetype(NAME_FONT, 112)
+    name_box = draw.textbbox((0, 0), NAME, font=name_font, anchor="ls")
+    name_width = name_box[2] - name_box[0]
+    left = (width - (icon_size + icon_gap + name_width)) // 2
+    card.alpha_composite(icon(icon_size), (left, icon_top))
+    cap_height = -draw.textbbox((0, 0), "H", font=name_font, anchor="ls")[1]
+    baseline = icon_top + icon_size // 2 + cap_height // 2
+    draw.text((left + icon_size + icon_gap - name_box[0], baseline), NAME, font=name_font, fill=COLOR_TEXT, anchor="ls")
+
+    for text, size, color, line_baseline in (
+        (TAGLINE, 34, COLOR_TEXT_SECONDARY, 420),
+        (SUBLINE, 24, COLOR_TEXT_MUTED, 476),
+    ):
+        text_font = ImageFont.truetype(TAGLINE_FONT, size)
+        draw.text((width // 2, line_baseline), text, font=text_font, fill=color, anchor="ms")
+
+    card = card.convert("RGB")
+    background = Image.new("RGB", card.size, COLOR_BACKGROUND)
+    left_edge, top_edge, right_edge, bottom_edge = ImageChops.difference(card, background).getbbox()
+    if left_edge < safe or top_edge < safe or right_edge > width - safe or bottom_edge > height - safe:
+        raise SystemExit("Social card content is outside the 80 px safe area")
+    card.save(path)
+
+
+def copy_to_site():
+    """Pages serves only docs/, so the site keeps its own copies of the brand files"""
+    if not os.path.isdir(DOCS_DIR):
+        return
+    shutil.copy(MASTER, os.path.join(DOCS_DIR, "icon.svg"))
+    shutil.copy(os.path.join(ASSETS_DIR, "social-card.png"), os.path.join(DOCS_DIR, "social-card.png"))
+    # Apple rounds the corners itself, so fill them with the tile colour
+    touch = Image.new("RGBA", (180, 180), COLOR_TILE)
+    touch.alpha_composite(icon(180))
+    touch.convert("RGB").save(os.path.join(DOCS_DIR, "apple-touch-icon.png"))
+    print("Copied icon.svg, apple-touch-icon.png and social-card.png to", DOCS_DIR)
+
+
 def main():
     master = icon(1024)
     master.save(os.path.join(ICON_DIR, "klippings.png"))
@@ -144,6 +196,10 @@ def main():
 
     make_banner(os.path.join(ASSETS_DIR, "banner.png"))
     print("Wrote banner.png to", ASSETS_DIR)
+
+    make_social_card(os.path.join(ASSETS_DIR, "social-card.png"))
+    print("Wrote social-card.png to", ASSETS_DIR)
+    copy_to_site()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,199 @@
+<!-- Klippings product page: one static page served by GitHub Pages from docs/ -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Klippings · Turn Kindle clippings into notes and quotes</title>
+  <meta name="description" content="Klippings is a free desktop app that turns your Kindle's My Clippings.txt into one text file per book, quote images, or both. For Windows, macOS and Linux.">
+  <meta name="theme-color" content="#121110">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Klippings">
+  <meta property="og:description" content="Turn Kindle clippings into notes and quotes.">
+  <meta property="og:url" content="https://tariqmk.github.io/Klippings/">
+  <meta property="og:image" content="https://tariqmk.github.io/Klippings/social-card.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Klippings">
+  <meta name="twitter:description" content="Turn Kindle clippings into notes and quotes.">
+  <meta name="twitter:image" content="https://tariqmk.github.io/Klippings/social-card.png">
+  <link rel="preload" href="fonts/Vollkorn-Regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top"><img src="icon.svg" alt="" width="28" height="28">Klippings</a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/TariqMK/Klippings">GitHub</a>
+      </nav>
+      <a class="button button-small" href="#download">Download</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-text">
+        <h1>Turn Kindle clippings into <span class="sel"><span class="sel-text">notes and quotes</span></span></h1>
+        <p class="lede">Klippings reads the My Clippings.txt file from your Kindle and saves each book's highlights as its own text file, as quote images, or both. Your original file is never changed.</p>
+        <div class="actions">
+          <a class="button" id="hero-download" href="https://github.com/TariqMK/Klippings/releases/latest">Download</a>
+          <a class="button button-ghost" href="https://github.com/TariqMK/Klippings">View source</a>
+        </div>
+        <p class="meta" id="hero-meta">Free · Windows, macOS and Linux</p>
+      </div>
+
+      <div class="window" aria-label="A preview of the Klippings window">
+        <div class="win-bar">
+          <span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="win-title">Klippings</span>
+        </div>
+        <div class="app">
+          <div class="app-header">
+            <span class="app-name">Klippings <small class="app-version">v2.5.3</small></span>
+            <span class="app-header-links"><span class="hide-sm">My Clippings.txt</span><span class="hide-sm">Choose Another File</span><span>Clear Files</span></span>
+          </div>
+          <div class="app-body">
+            <aside class="app-books">
+              <div class="books-head"><span id="book-summary">6 books, 13 highlights</span><span>Select None</span></div>
+              <ul id="book-list"></ul>
+            </aside>
+            <article class="app-reading" id="reading" aria-live="polite"></article>
+            <aside class="app-export">
+              <label class="check strong"><input type="checkbox" id="opt-text" checked><span class="box"></span>Text files</label>
+              <label class="check sub" id="opt-meta-row"><input type="checkbox" id="opt-meta" checked><span class="box"></span>Include page &amp; location</label>
+              <label class="check strong gap"><input type="checkbox" id="opt-images"><span class="box"></span>Quote images</label>
+              <div class="font-pick" id="font-pick" hidden><span class="label">Font</span><span class="select">Vollkorn<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></span></div>
+              <div class="export-foot">
+                <span class="label">Save to</span>
+                <span class="field">~\Documents\Highlights</span>
+                <span class="export-button" id="export-button">Export 6 Books</span>
+              </div>
+            </aside>
+          </div>
+          <div class="app-status"><span>2 entries left out, see details</span><span>Show Details</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="principles" aria-label="Principles">
+      <div>
+        <h2>Your file stays as it is</h2>
+        <p>Klippings only reads My Clippings.txt. Everything it makes is a new file in the folder you choose.</p>
+      </div>
+      <div>
+        <h2>One file per book</h2>
+        <p>Each book gets its own text file, named after the book, ready for Obsidian or any notes app.</p>
+      </div>
+      <div>
+        <h2>Download and run</h2>
+        <p>One file for Windows and Linux, one app for macOS. No installer and no account.</p>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <h2 class="section-title">One long file in. <span class="sel"><span class="sel-text">A tidy library</span></span> out.</h2>
+
+      <div class="panel panel-wide">
+        <div class="panel-copy">
+          <h3>Text files, with or without page and location</h3>
+          <p>Keep where each highlight came from, or save the words alone for your notes. The preview in the app changes as you choose.</p>
+          <label class="toggle"><input type="checkbox" id="demo-meta" checked><span class="track"><span class="thumb"></span></span>Include page &amp; location</label>
+        </div>
+        <figure class="file">
+          <figcaption class="file-name" id="file-name">Walden.txt</figcaption>
+          <pre class="file-body" id="file-body"></pre>
+        </figure>
+      </div>
+
+      <div class="panel-row">
+        <div class="panel">
+          <div class="panel-copy">
+            <h3>Quote images</h3>
+            <p>Every highlight becomes a 1080 x 1350 image in a folder named after the book. Long highlights are shared evenly across images, with fine ticks to show the order.</p>
+          </div>
+          <div class="quote-stage">
+            <div class="quote" id="quote" aria-live="polite">
+              <div class="ticks" id="quote-ticks"></div>
+              <p class="quote-text" id="quote-text"></p>
+              <p class="quote-by" id="quote-by"></p>
+            </div>
+            <div class="quote-controls">
+              <button type="button" class="icon-button" id="quote-prev" aria-label="Previous image"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></button>
+              <span class="quote-file" id="quote-file"></span>
+              <button type="button" class="icon-button" id="quote-next" aria-label="Next image"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-copy">
+            <h3>Several Kindles, one library</h3>
+            <p>Open clippings from different Kindles or dated backups at once. Their books are combined, and a highlight found in more than one file is kept once.</p>
+          </div>
+          <div class="merge">
+            <div class="merge-file"><span class="merge-path">Paperwhite\My Clippings.txt</span><span class="merge-count">412 highlights</span></div>
+            <div class="merge-file"><span class="merge-path">Backup 2023\My Clippings.txt</span><span class="merge-count">389 highlights</span></div>
+            <div class="merge-line" aria-hidden="true"></div>
+            <div class="merge-file merge-result"><span class="merge-path">31 books</span><span class="merge-count">604 highlights</span></div>
+            <p class="merge-note">197 highlights were in both files and are kept once. Highlights are put in the order you took them.</p>
+          </div>
+        </div>
+      </div>
+
+      <ul class="grid">
+        <li><h3>Drop or choose</h3><p>Drag clippings files onto the window, or press <kbd>Ctrl</kbd><kbd>O</kbd>.</p></li>
+        <li><h3>Pick your books</h3><p>Tick the books to export, or use Select All and Select None.</p></li>
+        <li><h3>Read before you export</h3><p>Every book's highlights open in a reading view.</p></li>
+        <li><h3>Leaves out the clutter</h3><p>Bookmarks, notes, article clips and empty highlights are skipped and counted.</p></li>
+        <li><h3>Two book fonts</h3><p>Vollkorn and Platypi are built in for quote images.</p></li>
+        <li><h3>Asks before replacing</h3><p>If a file with the same name exists, Klippings checks with you first.</p></li>
+        <li><h3>Keyboard first</h3><p><kbd>Ctrl</kbd><kbd>Return</kbd> exports, arrow keys move, <kbd>Space</kbd> includes a book.</p></li>
+        <li><h3>Light and dark</h3><p>The window follows your system's appearance.</p></li>
+      </ul>
+    </section>
+
+    <section class="download" id="download">
+      <h2 class="section-title">Download <span class="meta" id="download-version"></span></h2>
+      <div class="cards">
+        <a class="card" data-os="windows" href="https://github.com/TariqMK/Klippings/releases/latest">
+          <span class="card-os">Windows</span>
+          <span class="card-file">.exe <span class="card-size"></span></span>
+          <span class="card-note">x64. One file: download it and run it.</span>
+        </a>
+        <a class="card" data-os="macos" href="https://github.com/TariqMK/Klippings/releases/latest">
+          <span class="card-os">macOS</span>
+          <span class="card-file">.zip <span class="card-size"></span></span>
+          <span class="card-note">Apple Silicon. The app is unsigned, so approve it the first time under System Settings &gt; Privacy &amp; Security.</span>
+        </a>
+        <a class="card" data-os="linux" href="https://github.com/TariqMK/Klippings/releases/latest">
+          <span class="card-os">Linux</span>
+          <span class="card-file">.tar.gz <span class="card-size"></span></span>
+          <span class="card-note">x64. Extract it and run Klippings.</span>
+        </a>
+      </div>
+      <p class="fine">To run from source with Python 3.8 or later, run <code>pip install .</code> in the repository, then <code>klippings</code>.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="brand"><img src="icon.svg" alt="" width="24" height="24">Klippings</span>
+      <span class="footer-line">Your My Clippings.txt is never changed.</span>
+      <nav class="footer-links" aria-label="Project links">
+        <a href="https://github.com/TariqMK/Klippings">GitHub</a>
+        <a href="https://github.com/TariqMK/Klippings/releases">Releases</a>
+        <a href="https://github.com/TariqMK/Klippings/issues">Issues</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
