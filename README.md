@@ -1,18 +1,12 @@
 ![Klippings. Turn Kindle clippings into notes and quotes.](assets/banner.png)
 
-_**Disclaimer:** Most if not all of the code here has been written in Python with the help of AI_
+Klippings reads the `My Clippings.txt` file from your Kindle. It saves the highlights of each book as a text file, as quote images, or both. Your `My Clippings.txt` file is not changed.
 
----
+Works offline. Sends no data. It goes online only when you select **Check for Updates**.
 
-## What is Klippings?
+Available for Windows, macOS (Apple Silicon) and Linux.
 
-Klippings is a Kindle Highlight Processor aimed for use with Kindle's `My Clippings.txt` file, where book highlights for (sideloaded) documents reside.
-
-Klippings exists to aid anyone who wishes for more granular control over their highlights and to be able to export and store them in an organised, systematic manner.
-
-Your original `My Clippings.txt` file is not amended in any way.
-
-Works offline. Sends no data. It goes online only when you click **Check for Updates**.
+_**Disclaimer:** Most if not all of the code here has been written in Python with the help of AI._
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/main-dark.png">
@@ -21,76 +15,222 @@ Works offline. Sends no data. It goes online only when you click **Check for Upd
 
 ---
 
-## How Does it Work?
+## What Klippings Does
 
-The highlights contained within `My Clippings.txt` contain entries from all the sideloaded books one has read on the Kindle device. For long term flexibility this is both inefficient and prone to data corruption and loss, especially over time as the file size grows ever larger.
+Your Kindle records every highlight from every book in one file, `My Clippings.txt`. The file gets longer each time you highlight something. Klippings sorts it into one set of files per book.
 
-Klippings takes `My Clippings.txt` as the input, scans it for all highlights, recognises if there are multiple books and then outputs a text file per book containing all related highlights, a folder of quote images per book, or both.
+```
+My Clippings.txt   →   Walden.txt
+                       Pride and Prejudice.txt
+                       Moby-Dick.txt
+```
 
-<img width="1101" height="219" alt="image" src="https://github.com/user-attachments/assets/c3a91832-15f2-44ee-b841-b6e987cfa3c4" />
+- **Text files:** one `.txt` file per book, with or without the page and location of each highlight.
+- **Quote images:** one 1080 x 1350 px image per highlight, in a folder named after the book.
+- **Several files at once:** open clippings from several Kindles or dated backups. Klippings combines them into one library.
 
-The option to output highlights with or without metadata is available, as illustrated in the screenshots below.
+---
 
-Klippings also has the ability to turn your highlights into images ready to share anywhere you like.
+## Download
 
-## Screenshots
+1. Open the [Releases](https://github.com/TariqMK/Klippings/releases/latest) page.
+2. Download the file for your computer:
 
-Quote images on, page and location off. The preview hides page and location to match the export:
+| Computer | File |
+|---|---|
+| Windows (x64) | `Klippings-<version>-windows-x64.exe` |
+| macOS (Apple Silicon) | `Klippings-<version>-macos-arm64.zip` |
+| Linux (x64) | `Klippings-<version>-linux-x64.tar.gz` |
+
+3. Start Klippings:
+   - **Windows:** run the `.exe` file. No installation is necessary.
+   - **macOS:** open the `.zip` file, then open **Klippings**.
+   - **Linux:** extract the `.tar.gz` file, then run `Klippings`.
+
+**Note:** The macOS app is unsigned. The first time you open it, macOS blocks it. To allow it, go to **System Settings > Privacy & Security** and select **Open Anyway**.
+
+**Note:** On macOS, move **Klippings** out of the `Downloads` folder before you open it, for example to `Applications` or `Documents`. If it runs from where it was downloaded, macOS can stop it from saving its settings.
+
+---
+
+## How to Use Klippings
+
+1. Connect your Kindle to your computer. Find `My Clippings.txt` in the `documents` folder on the Kindle.
+2. Drop `My Clippings.txt` on the Klippings window, or select **Choose File**. To open several files, select or drop them together.
+3. In the book list, tick the books to export. Use **Select All** or **Select None** to change all of them.
+4. Select a book to read its highlights in the middle of the window.
+5. In the export panel on the right, choose what to make:
+   - **Text files**, with or without **Include page & location**.
+   - **Quote images**, with a **Font**.
+6. Under **Save to**, select the button and choose a folder.
+7. Select **Export**. The button shows how many books it will export, for example **Export 6 Books**.
+8. After the export, select **Show in Folder** to see the files.
+
+To open different files, select **Choose Another File**. To close the open files, select **Clear Files**. Your export choices stay as they are.
+
+**Note:** If a file with the same name is already in the folder, Klippings asks before it replaces it. A replaced file can't be recovered.
+
+---
+
+## Export Options
+
+### Text files
+
+Klippings saves one text file per book, directly in the folder you choose. The file name is the book title without its subtitle.
+
+| Include page & location | File name | Contents |
+|---|---|---|
+| Ticked (default) | `Walden.txt` | Each highlight, with its book, author, page and location |
+| Cleared | `Walden (simple).txt` | The title and author, then each highlight, separated by `---` |
+
+The reading view changes to show which version you will get.
+
+`Walden.txt`:
+
+```
+1. The mass of men lead lives of quiet desperation.
+	<Walden>(Henry David Thoreau) Your Highlight on page 8 | location 104-104
+
+2. Our life is frittered away by detail. Simplify, simplify.
+	<Walden>(Henry David Thoreau) Your Highlight on page 14 | location 190-191
+```
+
+`Walden (simple).txt`, for notes apps such as Obsidian:
+
+```
+Walden
+Henry David Thoreau
+
+---
+
+1. The mass of men lead lives of quiet desperation.
+
+---
+
+2. Our life is frittered away by detail. Simplify, simplify.
+```
+
+### Quote images
+
+Klippings saves each highlight as a WebP image, in a folder named after the book.
+
+```
+Walden/
+├── Highlight_0001.webp
+├── Highlight_0002_01.webp
+└── Highlight_0002_02.webp
+```
+
+<img src="assets/screenshots/quote-image.webp" alt="A 1080 x 1350 quote image of a highlight from Walden, with the book and author line at the bottom" width="360">
+
+- Every image is 1080 x 1350 px, black text on white.
+- The highlight is size 40, with line spacing 15, wrapped at 43 characters.
+- The book and author line is size 27, at the bottom of the image.
+- A highlight too long for one image is shared evenly across several images, such as `Highlight_0002_01.webp` and `Highlight_0002_02.webp`. Klippings breaks at the end of a sentence where one is close.
+- Fine ticks at the top centre of split images show how many images there are. The darker tick shows the current image.
+- Two fonts are included: Vollkorn and Platypi.
+
+To export only images, clear **Text files** and tick **Quote images**.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/images-and-simple-dark.png">
   <img src="assets/screenshots/images-and-simple-light.png" alt="Klippings with Quote images selected and Include page & location cleared: the font menu shows Vollkorn and the preview shows the highlights without page and location" width="840">
 </picture>
 
-Quote Image (Sample):
+---
 
-<img src="assets/screenshots/quote-image.webp" alt="A 1080 x 1350 quote image of a highlight from Walden, with the book and author line at the bottom" width="360">
+## Opening Several Files
 
-Standard Export (Sample):
+You can open clippings files from different Kindles, or dated backups of one Kindle, together.
 
-<img width="1036" height="1065" alt="image" src="https://github.com/user-attachments/assets/c6d55e20-c3c9-4cb8-86f8-9beb44296793" />
+- Books found in more than one file are combined into one book.
+- A highlight in a later file is left out if its text, book, author, page, location and date all match one in an earlier file.
+- Repeats inside one file are kept.
+- Highlights are put in the order you took them: by date, then by location. If a book has a date Klippings can't read, that book is sorted by location only.
 
-Simplified Export (Sample):
-
-<img width="1037" height="1065" alt="image" src="https://github.com/user-attachments/assets/5daba761-894c-4dc4-822b-67b6a70df817" />
+With one file open, highlights stay in the order of the file.
 
 ---
 
-## Run Directly
+## What Klippings Leaves Out
 
-Download the latest version for Windows, macOS (Apple Silicon) or Linux from the [Releases](https://github.com/TariqMK/Klippings/releases) Page and run it.
+Klippings exports highlights only. It leaves out these entries and shows how many of each it skipped:
 
-The macOS app is unsigned, so the first time you open it you will need to approve it under System Settings > Privacy & Security.
+- Bookmarks
+- Notes
+- Article clips
+- Empty highlights
+- Clipping limit messages
+- Copies already in another file
 
-Enjoy!
+Select **Show Details** in the status bar to see the counts.
 
-To find out if a newer version is available, click **Check for Updates** next to the version number. If there is one, select **Yes** to open its download page in your browser.
+---
+
+## Keyboard Shortcuts
+
+On macOS, use `Cmd` in place of `Ctrl`.
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+O` | Choose files |
+| `Ctrl+Return` | Export |
+| `Up` / `Down` | Move through the books |
+| `Space` | Include or leave out the current book |
+| `Esc` | Cancel an export |
+
+On macOS, **Open…**, **Export** and **Clear Files** are also in the **File** menu.
+
+---
+
+## Check for Updates
+
+1. Select **Check for Updates**, next to the version number at the top of the window.
+2. If a newer version is available, select **Yes** to open its download page in your browser.
+
+Klippings does not download or install updates itself.
+
+---
 
 ## Privacy
 
 - Klippings works offline. Everything it does with your clippings happens on your computer.
 - It has no telemetry, analytics, crash reports or tracking.
-- Your highlights, text files and quote images are saved only in the folder you choose.
-- Your settings (the last folder you used) are saved in `.kindle_highlights_config.json` in your home folder.
-- The app makes one network connection, and only when you click **Check for Updates**. It sends one request to `api.github.com` to read the latest release number. It sends no data about you or your files, and it keeps nothing. GitHub sees your IP address, as with any web request.
+- Your text files and quote images are saved only in the folder you choose.
+- Your settings (the last folder you used) are saved in a `Klippings-data` folder next to the app. Klippings creates it the first time you choose a **Save to** folder. Nothing is saved anywhere else, so to move Klippings to another folder or computer, move the app and `Klippings-data` together.
+- If Klippings can't write next to itself, it tells you once and does not save your settings. Your exports are not affected.
+- The app makes one network connection, and only when you select **Check for Updates**. It sends one request to `api.github.com` to read the latest release number. It sends no data about you or your files, and it keeps nothing. GitHub sees your IP address, as with any web request.
+
+---
+
+## Known Issues
+
+- Amazon has changed the format of `My Clippings.txt` over the years. The common English formats are supported. Files from Kindles set to other languages are not supported yet, and their entries are counted as unrecognised. If you have a problem, please [raise an issue](https://github.com/TariqMK/Klippings/issues).
+- A book with no author whose title ends in brackets, such as `Book (Vol 1)`, shows `Vol 1` as its author. The file format does not tell the two apart.
+- If you extend a highlight on your Kindle, the old and new versions are both kept. The Kindle records them as separate highlights.
+- Quote images use a fixed text size and line length. An unusually wide line, or a wider font, can come close to the edges of the image.
+
+---
 
 ## Run From Source
 
-Install the project and its required libraries from the repository root:
+Klippings needs Python 3.8 or later.
+
+1. From the repository root, install Klippings and its libraries:
 
 ```
 pip install .
 ```
 
-Then simply run the command below to bring up the GUI:
+2. Start the app:
 
 ```
 klippings
 ```
 
-Enjoy!
+**Note:** From source, `Klippings-data` goes in the folder you start `klippings` from. With `python -m klippings` from a checkout, it goes in the repository root. Git ignores it.
 
-When run from source, the application shows the development version, `v0.0.0.dev0`. Only release builds show a real version number. **Check for Updates** doesn't go online in a development build.
+**Note:** From source, the app shows the development version, `v0.0.0.dev0`. Only release builds show a real version number. **Check for Updates** does not go online in a development build.
 
 To run the tests:
 
@@ -99,13 +239,21 @@ pip install ".[dev]"
 pytest
 ```
 
+### Add a font for quote images
+
+1. Check that the font's licence allows it to be built into an app.
+2. Put the `.ttf` or `.otf` file in `klippings/fonts`.
+3. Put any licence file the font requires next to it.
+
+The font appears in the **Font** menu. Vollkorn and Platypi are already there, with their licences.
+
 ---
 
-## Update the Screenshots
+## Update the Screenshots and Brand Images
 
-The screenshots come from the real app with sample clippings from public-domain books. Retake them after a change to the interface.
+The screenshots come from the real app, with sample clippings from public-domain books. Retake them after a change to the interface.
 
-**Note:** The script needs Windows and a screen of at least 2240 x 1380 px. Do not cover the Klippings window while it runs.
+**Note:** Both scripts need Windows. The screenshot script also needs a screen of at least 2240 x 1380 px. Do not cover the Klippings window while it runs.
 
 1. Set `VERSION` at the top of `assets/make_screenshots.py` to the newest release tag.
 2. From the repository root, run:
@@ -116,39 +264,23 @@ python assets/make_screenshots.py
 
 The script writes the images to `assets/screenshots`.
 
+To rebuild the app icons, the banner and the social card after a change to the icon or tagline, run:
+
+```
+python assets/make_assets.py
+```
+
+The script also copies the site icons and social card into `docs/`.
+
 ---
 
 ## Creating a Release
 
-Run the **Release** workflow from the repository's Actions tab, on `main`, and choose:
+1. Open the repository's **Actions** tab and select the **Release** workflow.
+2. Run it on `main`, and choose:
+   - **Release type:** `draft` or `public`
+   - **Version increment:** `patch`, `minor` or `major`
 
-- **Release type:** `draft` or `public`
-- **Version increment:** `patch`, `minor` or `major`
+The new version comes from the highest existing tag or release, including drafts. The app shows it, and the release is tagged with it. The workflow does not commit anything to `main`, so your local copy stays level with GitHub.
 
-The new version is worked out from the highest existing tag or release, including drafts. It is then shown in the application and used to tag the release. The workflow doesn't commit anything to `main`, so your local copy stays level with GitHub after a release.
-
-To add release notes, edit the release on GitHub. The workflow only adds a link to the full list of changes.
-
----
-
-## Notes
-
-- Once you open a clippings file, the export options, save folder and Export button appear in a panel to the right of your highlights
-- The new text files are saved directly in the folder you choose, with no subfolder added
-- You can choose or drop several clippings files at once, such as those from different Kindles or dated backups. Their books are combined, and a highlight found in more than one file is kept once if its text, book, author, page, location and date are all exactly the same. Highlights are put in the order they were taken, by date and then location, or by location alone if a book has a date that can't be read
-- By default, each highlight keeps its page and location, saved as `Book Title.txt`. Turn off **Include page & location** to save your highlights cleanly for PKMS systems like Obsidian, as `Book Title (simple).txt`. The preview shows which version you'll get
-- When the application is run and the highlights have been extracted, a summary of books and highlights processed will be displayed in the application itself
-- Bookmarks, notes, article clips, empty highlights, clipping limit messages and copies from other files are left out of the export, and the application shows how many of each were skipped
-- Turn on **Quote images** to save each selected book's highlights as images, in a folder named after the book. Turn off **Text files** if you only want the images. Every image is 1080x1350, with the text at size 40 and line spacing of 15, wrapped at 43 characters, and the book and author line at size 27. A highlight too long for one image is shared evenly across several, like `Highlight_0004_01.webp` and `Highlight_0004_02.webp`, breaking at the end of a sentence where one is close. Fine ticks at the top centre of these images show how many there are and which one you're on
-- Vollkorn and Platypi are included for quote images, with their licences in `klippings/fonts`. To add a font, put a `.ttf` or `.otf` file in that folder. It's built into the app, so check its licence allows that and keep any licence file it requires alongside it
-- If a file with the same name is already in the folder, the application asks before replacing it
-- Keyboard shortcuts: `Ctrl/Cmd+O` chooses files, `Ctrl/Cmd+Return` exports, the arrow keys move through books, `Space` includes or leaves out the current book, and `Esc` cancels an export
-
----
-
-**Known Issues:**
-
-- Over the years, Amazon has slightly changed the syntax of highlight metadata within `My Clippings.txt`. The common English formats are supported, but `My Clippings.txt` files from Kindles set to other languages are not yet, and their entries are counted as unrecognised. If you experience any problems, please raise an issue and I will look into it
-- A book with no author whose title ends in brackets, such as `Book (Vol 1)`, will show `Vol 1` as its author, as the file format doesn't distinguish the two
-- If you extend an existing highlight on your Kindle, both the old and new versions are kept, as Kindle records them as separate highlights
-- Quote images use a fixed text size and line length, so an unusually wide line, or a wider font, can come close to the image's edges
+To add release notes, edit the release on GitHub. The workflow adds only a link to the full list of changes.

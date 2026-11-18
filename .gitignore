@@ -19,3 +19,6 @@ venv/
 build/
 dist/
 *.spec
+
+# Klippings settings, created next to the app when run
+Klippings-data/

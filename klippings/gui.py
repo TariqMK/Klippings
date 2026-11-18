@@ -14,9 +14,8 @@ try:
 except ImportError:
     TkinterDnD = None
     DND_FILES = None
-import json
 
-from klippings import updates
+from klippings import settings, updates
 from klippings._version import __version__
 from klippings.exporter import export_books, existing_files
 from klippings.images import DEFAULT_FONT, existing_image_folders, export_images, list_fonts
@@ -234,7 +233,7 @@ class KindleHighlightsGUI:
         self.reading_font = find_reading_font(self.root)
 
         # Load saved preferences
-        self.config_file = os.path.join(os.path.expanduser("~"), ".kindle_highlights_config.json")
+        self.settings_warning_shown = False
         self.load_preferences()
 
         # Processing control
@@ -712,24 +711,28 @@ class KindleHighlightsGUI:
             self.root.configure(menu=menu_bar)
 
     def load_preferences(self):
-        """Load saved preferences from config file"""
+        """Load saved preferences from Klippings-data next to the app"""
         self.last_output_dir = ""
-        try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                saved_dir = json.load(f).get('last_output_dir')
-            if saved_dir and os.path.isdir(saved_dir):
-                self.last_output_dir = saved_dir
-        except (OSError, ValueError, AttributeError):
-            pass
+        saved_dir = settings.load_settings().get('last_output_dir')
+        if isinstance(saved_dir, str) and os.path.isdir(saved_dir):
+            self.last_output_dir = saved_dir
 
     def save_preferences(self):
-        """Save preferences to config file"""
+        """Save preferences to Klippings-data next to the app"""
         try:
-            config = {'last_output_dir': self.output_path_var.get()}
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f)
+            settings.save_settings({'last_output_dir': self.output_path_var.get()})
         except OSError:
-            pass
+            # Tell the user once, rather than quietly saving somewhere else
+            if not self.settings_warning_shown:
+                self.settings_warning_shown = True
+                messagebox.showwarning(
+                    "Can't Save Settings",
+                    f"Klippings keeps its settings in a {settings.DATA_FOLDER_NAME} folder next to the app, "
+                    f"but it can't write to:\n\n{settings.app_folder()}\n\n"
+                    "Your exports are not affected. To keep your settings, move Klippings to a folder you can change, "
+                    "such as Documents.",
+                    parent=self.root
+                )
 
     def set_window_icon(self):
         """Show the Klippings logo on the window, when the logo is available"""
