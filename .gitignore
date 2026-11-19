@@ -1,5 +1,8 @@
 Meta/
 
+# macOS Finder files
+.DS_Store
+
 # AI tool files
 .claude/
 CLAUDE.md
