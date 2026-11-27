@@ -3,11 +3,13 @@
 import tkinter as tk
 from tkinter import font as tkfont, messagebox, filedialog
 import customtkinter as ctk
+import logging
 import os
 import queue
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -15,7 +17,7 @@ except ImportError:
     TkinterDnD = None
     DND_FILES = None
 
-from klippings import settings, updates
+from klippings import app_log, feedback, settings, updates
 from klippings._version import __version__
 from klippings.exporter import export_books, existing_files
 from klippings.images import DEFAULT_FONT, existing_image_folders, export_images, list_fonts
@@ -68,6 +70,12 @@ READING_MAX_LINE_WIDTH = 680
 READING_MARGIN = 32
 READING_FONT_SIZE = 17
 MAX_LISTED_REPLACEMENTS = 5
+
+log_app = logging.getLogger("klippings.app")
+log_files = logging.getLogger("klippings.files")
+log_export = logging.getLogger("klippings.export")
+log_settings = logging.getLogger("klippings.settings")
+log_updates = logging.getLogger("klippings.updates")
 
 
 def asset_path(file_name):
@@ -133,6 +141,30 @@ def list_file_names(paths):
     if len(paths) > MAX_LISTED_REPLACEMENTS:
         names.append(f"and {len(paths) - MAX_LISTED_REPLACEMENTS:,} more")
     return "\n".join(names)
+
+
+class Tooltip:
+    """A short hint shown under a widget while the pointer rests on it"""
+
+    def __init__(self, widget, text):
+        self.widget, self.text, self.tip = widget, text, None
+        widget.bind("<Enter>", self.show, add="+")
+        widget.bind("<Leave>", self.hide, add="+")
+
+    def show(self, event=None):
+        if self.tip:
+            return
+        self.tip = tk.Toplevel(self.widget)
+        self.tip.wm_overrideredirect(True)
+        x = self.widget.winfo_rootx()
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self.tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(self.tip, text=self.text, background="#262421", foreground="#efe9de", padx=8, pady=4).pack()
+
+    def hide(self, event=None):
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
 
 
 class BookRow(ctk.CTkFrame):
@@ -224,6 +256,10 @@ class KindleHighlightsGUI:
             self.root = ctk.CTk()
             self._tk_root = None
 
+        for window in (self.root, self._tk_root):
+            if window is not None:
+                window.report_callback_exception = app_log.log_tk_callback_error
+        app_log.log_window_details(self.root)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.title("Klippings")
         self.root.geometry("1040x680")
@@ -337,9 +373,13 @@ class KindleHighlightsGUI:
         self.update_button.configure(state="disabled", text="Checking…")
 
         def worker():
+            started = time.monotonic()
+            log_updates.info("Check for Updates selected; asking api.github.com for the latest release")
             try:
                 result = updates.fetch_latest_release(__version__)
-            except (OSError, ValueError):
+                log_updates.info(f"Latest release is {result[0]} ({time.monotonic() - started:.1f} s)")
+            except (OSError, ValueError) as error:
+                log_updates.warning(f"Update check failed after {time.monotonic() - started:.1f} s: {error}")
                 result = None
             self.run_on_ui(lambda: self.show_update_result(result))
 
@@ -688,9 +728,59 @@ class KindleHighlightsGUI:
         self.log_text.grid(row=0, column=0, padx=(24, 8), pady=(0, 16), sticky="ew")
         self.log_text.configure(state="disabled")
 
-        self.clear_button = self.quiet_button(self.details_frame, "Clear", self.clear_log)
-        self.clear_button.grid(row=0, column=1, padx=(0, 16), pady=(0, 16), sticky="n")
+        actions = ctk.CTkFrame(self.details_frame, fg_color="transparent")
+        actions.grid(row=0, column=1, padx=(0, 16), pady=(0, 16), sticky="n")
+        self.clear_button = self.quiet_button(actions, "Clear", self.clear_log)
+        self.clear_button.grid(row=0, column=0, sticky="w")
+        self.view_logs_button = self.quiet_button(actions, "View Logs", self.view_logs)
+        self.view_logs_button.grid(row=1, column=0, pady=(4, 0), sticky="w")
+        Tooltip(self.view_logs_button, f"Show the log file in {app_log.file_manager_name()}")
+        self.report_button = self.quiet_button(actions, "Report a Problem…", self.report_problem)
+        self.report_button.grid(row=2, column=0, pady=(4, 0), sticky="w")
+        Tooltip(self.report_button, "Open a bug report on GitHub in your browser")
         self.details_frame.grid_remove()
+
+    def view_logs(self):
+        """Show Klippings.log in the file manager, or say where it is when that can't be done"""
+        log_app.info("View Logs selected")
+        if not app_log.reveal():
+            self.show_log_path_dialog()
+
+    def show_log_path_dialog(self):
+        path = app_log.current_path() or app_log.log_path()
+        exists = os.path.isfile(path)
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title("View Logs")
+        dialog.configure(fg_color=COLOR_PAGE)
+        dialog.transient(self.root)
+        dialog.resizable(False, False)
+        message = (
+            "Klippings couldn't open the file manager. The log file is here:" if exists else
+            "Klippings can't write its log file, because it can't write to this folder. "
+            "Move Klippings to a folder you can change, such as Documents. The log file would be here:"
+        )
+        ctk.CTkLabel(dialog, text=message, font=ui_font(13), text_color=COLOR_TEXT, wraplength=420, justify="left").grid(
+            row=0, column=0, columnspan=2, padx=20, pady=(20, 8), sticky="w")
+        ctk.CTkLabel(dialog, text=path, font=ctk.CTkFont(family=MONO_FONT, size=12), text_color=COLOR_TEXT_SECONDARY,
+                     wraplength=420, justify="left").grid(row=1, column=0, columnspan=2, padx=20, pady=(0, 16), sticky="w")
+
+        def copy_path():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(path)
+            copy_button.configure(text="Copied")
+
+        copy_button = self.quiet_button(dialog, "Copy Path", copy_path)
+        copy_button.grid(row=2, column=0, padx=(20, 4), pady=(0, 20), sticky="w")
+        ctk.CTkButton(dialog, text="OK", width=80, command=dialog.destroy, fg_color=COLOR_ACCENT,
+                      hover_color=COLOR_ACCENT_HOVER, text_color=COLOR_ON_ACCENT).grid(
+            row=2, column=1, padx=(4, 20), pady=(0, 20), sticky="e")
+        dialog.after(100, dialog.grab_set)
+
+    def report_problem(self):
+        """Open the GitHub bug form with the version and OS filled in. Nothing is sent from here."""
+        url = feedback.report_problem_url(__version__, app_log.os_description())
+        log_app.info("Report a Problem selected; opening the GitHub bug form in the browser")
+        webbrowser.open(url)
 
     def bind_shortcuts(self):
         self.root.bind(f"<{SHORTCUT_MODIFIER}-o>", lambda event: self.browse_file())
@@ -708,6 +798,10 @@ class KindleHighlightsGUI:
             file_menu.add_command(label="Export", accelerator="Command-Return", command=self.start_processing_if_ready)
             file_menu.add_command(label="Clear Files", command=self.clear_files)
             menu_bar.add_cascade(label="File", menu=file_menu)
+            help_menu = tk.Menu(menu_bar, tearoff=False, name="help")
+            help_menu.add_command(label="View Logs", command=self.view_logs)
+            help_menu.add_command(label="Report a Problem…", command=self.report_problem)
+            menu_bar.add_cascade(label="Help", menu=help_menu)
             self.root.configure(menu=menu_bar)
 
     def load_preferences(self):
@@ -716,12 +810,15 @@ class KindleHighlightsGUI:
         saved_dir = settings.load_settings().get('last_output_dir')
         if isinstance(saved_dir, str) and os.path.isdir(saved_dir):
             self.last_output_dir = saved_dir
+        elif saved_dir:
+            log_settings.warning(f"Saved Save to folder no longer exists, so none is set: {saved_dir}")
 
     def save_preferences(self):
         """Save preferences to Klippings-data next to the app"""
         try:
             settings.save_settings({'last_output_dir': self.output_path_var.get()})
-        except OSError:
+        except OSError as error:
+            log_settings.warning(f"Couldn't save settings in {settings.data_folder()}: {error}")
             # Tell the user once, rather than quietly saving somewhere else
             if not self.settings_warning_shown:
                 self.settings_warning_shown = True
@@ -761,6 +858,7 @@ class KindleHighlightsGUI:
             initialdir=self.output_path_var.get() or os.path.expanduser("~")
         )
         if directory:
+            log_settings.info(f"Save to folder changed: {self.output_path_var.get() or '(none)'} → {directory}")
             self.output_path_var.set(directory)
             self.save_preferences()
             self.log(f"Saving to: {directory}")
@@ -774,6 +872,7 @@ class KindleHighlightsGUI:
         # Tk splits the paths and removes the braces around any containing spaces
         dropped_files = [path.strip() for path in self.root.tk.splitlist(event.data)]
         file_paths = [path for path in dropped_files if os.path.isfile(path) and path.lower().endswith('.txt')]
+        log_files.info(f"{len(dropped_files)} item(s) dropped, {len(file_paths)} .txt file(s) among them")
 
         if not file_paths:
             messagebox.showerror("Can't Open This File", "Klippings reads .txt files, like My Clippings.txt.", parent=self.root)
@@ -791,6 +890,7 @@ class KindleHighlightsGUI:
     def cancel_processing(self):
         """Cancel the current processing operation"""
         if self.is_processing:
+            log_export.info("Cancel selected")
             self.cancel_requested = True
             self.log("\nCancelling after the current file")
             self.set_status("Cancelling…")
@@ -811,6 +911,11 @@ class KindleHighlightsGUI:
         self.file_paths = list(file_paths)
         for path in self.file_paths:
             self.log(f"File {how}: {os.path.basename(path)}")
+            try:
+                size = f"{os.path.getsize(path):,} bytes"
+            except OSError as error:
+                size = f"size unknown: {error}"
+            log_files.info(f"File {how}: {path} ({size})")
         self.parse_and_show_books(self.file_paths)
 
     def clear_files(self):
@@ -846,9 +951,11 @@ class KindleHighlightsGUI:
         # Clear the previous books so they can't be processed by mistake
         self.clear_books()
 
+        started = time.monotonic()
         try:
             books, stats = parse_clipping_files(file_paths)
         except Exception as e:
+            log_files.error("Couldn't read the clippings file(s)", exc_info=True)
             self.log(f"Couldn't read the file: {str(e)}")
             self.set_status("Couldn't read that file" if single_file else "Couldn't read one of those files")
             message = "this file" if single_file else "one of these files"
@@ -858,6 +965,11 @@ class KindleHighlightsGUI:
 
         self.book_data = books
         self.log_parse_summary(stats)
+        skipped = ", ".join(f"{key} {stats[key]}" for key in SKIPPED_ENTRY_LABELS if stats[key]) or "none"
+        log_files.info(
+            f"Read {len(file_paths)} file(s) in {time.monotonic() - started:.2f} s: {len(books)} books, "
+            f"{stats['highlight']} highlights; left out: {skipped}"
+        )
 
         if not books:
             self.log("No highlights found\n")
@@ -1171,7 +1283,14 @@ class KindleHighlightsGUI:
         }
 
         if not self.confirm_replacing_files(options):
+            log_export.info("Export stopped: the user chose not to replace existing files")
             return
+        log_export.info(
+            f"Export started: {len(options['books'])} of {len(options['all_titles'])} books to {options['output_dir']}; "
+            f"text files {'on' if options['create_text'] else 'off'} (page & location "
+            f"{'on' if options['with_metadata'] else 'off'}), quote images "
+            f"{'on, font ' + os.path.basename(options['image_font'] or '') if options['create_images'] else 'off'}"
+        )
 
         self.is_processing = True
         self.cancel_requested = False
@@ -1193,6 +1312,7 @@ class KindleHighlightsGUI:
         image_count = 0
         outcome = 'success'
         error_message = ''
+        started = time.monotonic()
 
         try:
             self.log(f"\nReading: {options['clippings_name']}")
@@ -1234,6 +1354,7 @@ class KindleHighlightsGUI:
         except Exception as e:
             error_message = str(e)
             outcome = 'error'
+            log_export.error("Export failed", exc_info=True)
             self.log(f"\nExport failed: {error_message}")
 
         finally:
@@ -1241,6 +1362,9 @@ class KindleHighlightsGUI:
             if image_count:
                 saved.append(format_count(image_count, 'image'))
             summary = f"Saved {' and '.join(saved) or 'nothing'} to {shorten_path(output_dir)}"
+            log_export.info(
+                f"Export {outcome} in {time.monotonic() - started:.1f} s: {book_count} text files, {image_count} images"
+            )
             self.run_on_ui(lambda: self.finish_processing(outcome, output_dir, error_message, summary))
 
     def finish_processing(self, outcome, output_dir, error_message, summary):
@@ -1269,6 +1393,7 @@ class KindleHighlightsGUI:
 
     def on_closing(self):
         """Handle window closing"""
+        log_app.info("Window closed")
         self.closing = True
         self.cancel_requested = True
 
@@ -1294,5 +1419,16 @@ def main():
     if "--self-test" in sys.argv[1:]:
         from klippings import selftest
         sys.exit(selftest.run())
-    app = KindleHighlightsGUI()
-    app.run()
+    started = time.monotonic()
+    app_log.start(__version__)
+    try:
+        app = KindleHighlightsGUI()
+    except Exception:
+        log_app.error("The window couldn't be built", exc_info=True)
+        app_log.end()
+        raise
+    log_app.info(f"Window ready in {time.monotonic() - started:.2f} s")
+    try:
+        app.run()
+    finally:
+        app_log.end()

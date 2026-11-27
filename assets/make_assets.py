@@ -7,6 +7,7 @@ Writes, in assets/icon/:
 Writes, in assets/:
   banner.png      README banner, 1280 x 320 drawn at 2x (2560 x 640)
   social-card.png GitHub social preview, 1280 x 640, everything 80 px inside each edge
+  brand-board.png the brand board, from brand.json, 1600 x 1250 drawn at 2x (only if PySide6 is installed)
 Writes, in docs/ (the GitHub Pages site):
   icon.svg, apple-touch-icon.png (180 px, no transparency), social-card.png
 
@@ -17,10 +18,13 @@ The banner uses the app's Windows fonts (Segoe UI Semibold, Consolas), so run it
 Run from the project root:  python assets/make_assets.py   (needs Pillow)
 """
 
+import importlib.util
 import io
 import os
 import shutil
 import struct
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont
@@ -200,6 +204,19 @@ def main():
     make_social_card(os.path.join(ASSETS_DIR, "social-card.png"))
     print("Wrote social-card.png to", ASSETS_DIR)
     copy_to_site()
+    make_brand_board()
+
+
+def make_brand_board():
+    """Draw the brand board from brand.json. It needs PySide6, so it is skipped without it."""
+    if importlib.util.find_spec("PySide6") is None:
+        print("Skipped brand-board.png: install PySide6 to build it (pip install PySide6)")
+        return
+    subprocess.run(
+        [sys.executable, os.path.join(ASSETS_DIR, "make_brand_board.py"), os.path.join(ASSETS_DIR, "brand.json"),
+         "--out", os.path.join(ASSETS_DIR, "brand-board.png")],
+        check=True,
+    )
 
 
 if __name__ == "__main__":

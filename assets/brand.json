@@ -1,0 +1,15 @@
+{
+  "name": "Klippings",
+  "tagline": "Turn Kindle clippings into notes and quotes.",
+  "subtitle": "v2.5.6 · November 2026",
+  "icon": "icon/klippings.svg",
+  "icon_small": "icon/klippings-small.svg",
+  "fonts": {"ui": ["Segoe UI", "SF Pro Text", "Roboto"], "mono": ["Consolas", "Menlo", "DejaVu Sans Mono"]},
+  "accent": "#d1a040",
+  "themes": {
+    "dark":  {"bg": "#161513", "surface": "#262421", "border": "#2c2a26",
+              "text": "#efe9de", "text_secondary": "#aaa398", "text_muted": "#918b80"},
+    "light": {"bg": "#f7f4ee", "surface": "#e4dfd4", "border": "#d9d3c7",
+              "text": "#1f1b16", "text_secondary": "#5e554a", "text_muted": "#686054"}
+  }
+}

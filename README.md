@@ -21,6 +21,12 @@ My Clippings.txt   →   Walden.txt
                        Moby-Dick.txt
 ```
 
+### Drop in your clippings
+
+<img src="assets/gifs/drop-a-file.gif" alt="My Clippings.txt dropped on the Klippings window: the drop area lights up, then six books and their highlights appear, and two books are opened in turn" width="840">
+
+Drop `My Clippings.txt` on the window. Your books and highlights appear at once, ready to read and export.
+
 ### Text files for each book
 
 <picture>
@@ -38,6 +44,11 @@ Each highlight becomes a 1080 x 1350 px image, ready to share. Long highlights a
 
 ### Several files at once
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/several-files-dark.png">
+  <img src="assets/screenshots/several-files-light.png" alt="Klippings with two clippings files open: eight books in one list, Walden with highlights from both Kindles, and 5 entries left out in the status bar" width="840">
+</picture>
+
 Open clippings from several Kindles, or dated backups of one Kindle. Klippings combines them into one library and leaves out the copies.
 
 ---
@@ -47,9 +58,11 @@ Open clippings from several Kindles, or dated backups of one Kindle. Klippings c
 - Klippings works offline. Everything it does with your clippings happens on your computer.
 - It has no telemetry, analytics, crash reports or tracking.
 - Your text files and quote images are saved only in the folder you choose.
-- Your settings (the last folder you used) are saved in a `Klippings-data` folder next to the app. Klippings creates it the first time you choose a **Save to** folder. Nothing is saved anywhere else, so to move Klippings to another folder or computer, move the app and `Klippings-data` together.
+- Your settings (the last folder you used) and the log file are saved in a `Klippings-data` folder next to the app. Klippings creates it when it first starts. Nothing is saved anywhere else, so to move Klippings to another folder or computer, move the app and `Klippings-data` together.
+- The app keeps a log file, `Klippings.log`, in the `Klippings-data` folder. It records what the app does and any errors, including file names, to help fix problems. It never records the text of your highlights. It never leaves your computer unless you send it. To find it, select **Show Details**, then **View Logs**.
 - If Klippings can't write next to itself, it tells you once and does not save your settings. Your exports are not affected.
 - The app makes one network connection, and only when you select **Check for Updates**. It sends one request to GitHub (`api.github.com`) to read the latest release number. It sends no data about you or your files, and it keeps nothing. GitHub sees your IP address, as with any web request.
+- **Report a Problem…** opens a page on GitHub in your browser. Nothing is sent until you submit it there.
 
 ---
 
@@ -213,6 +226,17 @@ On macOS, **Open…**, **Export** and **Clear Files** are also in the **File** m
 
 Klippings does not download or install updates itself.
 
+### Report a problem
+
+1. Select **Show Details** at the bottom right of the window. On macOS, you can also use the **Help** menu.
+2. Select **Report a Problem…**. A bug report opens on GitHub in your browser, with your Klippings version and system filled in.
+3. Describe what happened, then select **Submit new issue**.
+
+To add the log file to the report, select **View Logs**, then drag `Klippings.log` into the report. You can also [report a bug](https://github.com/TariqMK/Klippings/issues/new?template=bug.yml) or [suggest an idea](https://github.com/TariqMK/Klippings/issues/new?template=idea.yml) directly.
+
+> [!NOTE]
+> You need a free GitHub account to send a report.
+
 ### Known issues
 
 - Amazon has changed the format of `My Clippings.txt` over the years. The common English formats are supported. Files from Kindles set to other languages are not supported yet, and their entries are counted as unrecognised. If you have a problem, please [raise an issue](https://github.com/TariqMK/Klippings/issues).
@@ -288,10 +312,10 @@ The font appears in the **Font** menu. Vollkorn and Platypi are already there, w
 <details>
 <summary><strong>Update the screenshots</strong></summary>
 
-The screenshots come from the real app, with sample clippings from public-domain books. Retake them after a change to the interface.
+The screenshots and the drag-and-drop GIF come from the real app, with sample clippings from public-domain books. Retake them after a change to the interface.
 
 > [!IMPORTANT]
-> Both scripts need Windows. The screenshot script also needs a screen of at least 2240 x 1380 px. Do not cover the Klippings window while it runs.
+> The screenshot script runs on Windows, macOS and Linux (X11). It needs a screen of at least 2240 x 1380 px, or 1120 x 690 on a 2x display. On macOS, the app that runs it, such as Terminal, needs **Screen & System Audio Recording** permission. Do not cover the Klippings window while it runs.
 
 1. Set `VERSION` at the top of `assets/make_screenshots.py` to the newest release tag.
 2. From the repository root, run:
@@ -300,15 +324,15 @@ The screenshots come from the real app, with sample clippings from public-domain
 python assets/make_screenshots.py
 ```
 
-The script writes the images to `assets/screenshots`.
+The script writes the images to `assets/screenshots` and the GIF to `assets/gifs`.
 
-To rebuild the app icons, the banner and the social card after a change to the icon or tagline, run:
+To rebuild the app icons, the banner, the social card and the brand board after a change to the icon, tagline or colours, run:
 
 ```
 python assets/make_assets.py
 ```
 
-The script also copies the site icons and social card into `docs/`.
+The script also copies the site icons and social card into `docs/`. The banner and social card use Windows fonts, so run it on Windows. The brand board (`assets/brand-board.png`) is drawn from `assets/brand.json` and needs PySide6 (`pip install PySide6`). Update `brand.json` when the app's colours change.
 
 </details>
 

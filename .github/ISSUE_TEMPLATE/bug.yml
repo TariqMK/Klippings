@@ -1,0 +1,37 @@
+name: Bug report
+description: Something isn't working right
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen again?
+      placeholder: |
+        1. Dropped My Clippings.txt from my Kindle on the window
+        2. Ticked Quote images and selected Export
+        3. The export stopped at the third book
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Klippings version
+      description: Next to the name at the top of the Klippings window
+      placeholder: e.g. 2.5.6
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Windows 11, macOS 26.1, Ubuntu 24.04
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots or a screen recording help a lot. The log file helps too (Show Details > View Logs). You can drag them in here.

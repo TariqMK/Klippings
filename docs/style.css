@@ -246,7 +246,7 @@ h1, h2, h3, p { margin: 0; }
 .principles p { color: var(--text-2); font-size: 15px; }
 
 /* Features */
-.features, .download { max-width: var(--page); margin: 0 auto; padding: 0 24px 112px; }
+.features, .download, .feedback { max-width: var(--page); margin: 0 auto; padding: 0 24px 112px; }
 .section-title { font: 400 clamp(32px, 4.4vw, 48px)/1.15 var(--serif); margin-bottom: 48px; }
 .panel {
   background: var(--surface-1);
@@ -370,6 +370,10 @@ kbd {
 .card-size { color: var(--muted); }
 .card-note { font-size: 14px; color: var(--text-2); margin-top: 10px; }
 .fine { margin-top: 24px; color: var(--muted); font-size: 14px; }
+
+/* Feedback */
+.feedback-line { color: var(--text-2); font-size: 18px; margin-bottom: 24px; }
+.feedback-links { display: flex; gap: 12px; flex-wrap: wrap; }
 code { font: 400 13px var(--mono); color: var(--text); background: var(--raised); padding: 2px 6px; border-radius: 4px; }
 
 /* Footer */
@@ -416,7 +420,7 @@ code { font: 400 13px var(--mono); color: var(--text); background: var(--raised)
   .grid li:last-child { border-bottom: 0; }
   .cards { grid-template-columns: minmax(0, 1fr); }
   .footer-links { margin-left: 0; }
-  .features, .download { padding-bottom: 80px; }
+  .features, .download, .feedback { padding-bottom: 80px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
