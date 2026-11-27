@@ -186,7 +186,8 @@ def test_view_logs_reports_failure(tmp_path):
     assert app_log.reveal(str(path), popen=broken_popen) is False
     calls = []
     assert app_log.reveal(str(path), popen=calls.append) is True
-    assert calls and str(path) in " ".join(calls[0])
+    # Linux opens the folder, as most of its file managers can't select a file
+    assert calls == [app_log.reveal_command(str(path))]
 
 
 def test_file_manager_names():
