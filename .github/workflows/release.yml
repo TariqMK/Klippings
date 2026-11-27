@@ -40,11 +40,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install test requirements
-        run: python -m pip install "pytest>=7" pillow
+      # The self-test test builds the Tk window, so the tests need the app installed and a display.
+      - name: Install a virtual display
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Install the app and test requirements
+        run: python -m pip install . "pytest>=7"
 
       - name: Run tests
-        run: python -m pytest
+        run: xvfb-run -a python -m pytest
 
   version:
     needs: test
@@ -105,7 +109,7 @@ jobs:
 
       - name: Install Tk (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y tk
+        run: sudo apt-get update && sudo apt-get install -y tk xvfb
 
       - name: Confirm Apple Silicon (macOS)
         if: runner.os == 'macOS'
@@ -126,6 +130,7 @@ jobs:
         run: >
           pyinstaller --noconfirm ${{ matrix.mode }} --windowed
           --name Klippings --paths .
+          --osx-bundle-identifier io.github.tariqmk.klippings
           --collect-data customtkinter --collect-all tkinterdnd2
           --icon "${{ matrix.icon }}"
           --add-data "assets/icon/klippings.ico:assets/icon"
@@ -133,9 +138,42 @@ jobs:
           --add-data "klippings/fonts:klippings/fonts"
           klippings/__main__.py
 
-      - name: Check the app icon is inside the bundle (macOS)
+      # PyInstaller leaves the version in Get Info at 0.0.0. PyInstaller's Info.plist has no
+      # CFBundleVersion, and PlistBuddy's "Set" fails on a missing key, so use plutil -replace,
+      # which adds it. Editing Info.plist breaks the ad-hoc signature, so sign again.
+      - name: Stamp the version and check the icon (macOS)
         if: runner.os == 'macOS'
-        run: ls dist/Klippings.app/Contents/Resources/*.icns
+        run: |
+          app=dist/Klippings.app
+          plist="$app/Contents/Info.plist"
+          v="${TAG#v}"; v="${v%%-*}"
+          plutil -replace CFBundleShortVersionString -string "$v" "$plist"
+          plutil -replace CFBundleVersion -string "$v" "$plist"
+          codesign --force --sign - "$app"
+          codesign --verify --deep --strict "$app"
+          ls "$app/Contents/Resources/"*.icns >/dev/null || { echo "::error::The .app has no icon"; exit 1; }
+
+      # Starts the real build. It proves the window, icons, fonts, themes and drag and drop load,
+      # and that the version is right. A windowed .exe has no console, so Windows checks the exit code only.
+      - name: Self-test (macOS, Linux)
+        if: runner.os != 'Windows'
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            macOS) output=$(dist/Klippings.app/Contents/MacOS/Klippings --self-test) ;;
+            Linux) output=$(xvfb-run -a dist/Klippings --self-test) ;;
+          esac
+          echo "$output"
+          [ "$(tail -n 1 <<< "$output")" = "Klippings $TAG" ] || { echo "::error::Expected 'Klippings $TAG'"; exit 1; }
+
+      - name: Self-test (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $p = Start-Process "dist/Klippings.exe" -ArgumentList '--self-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Self-test failed with exit code $($p.ExitCode)" }
 
       - name: Package
         shell: bash

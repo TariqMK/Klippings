@@ -1291,5 +1291,8 @@ class KindleHighlightsGUI:
 
 
 def main():
+    if "--self-test" in sys.argv[1:]:
+        from klippings import selftest
+        sys.exit(selftest.run())
     app = KindleHighlightsGUI()
     app.run()
