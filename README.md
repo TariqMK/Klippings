@@ -1,12 +1,8 @@
 ![Klippings. Turn Kindle clippings into notes and quotes.](assets/banner.png)
 
-Klippings reads the `My Clippings.txt` file from your Kindle. It saves the highlights of each book as a text file, as quote images, or both. Your `My Clippings.txt` file is not changed.
+Klippings turns the highlights on your Kindle into a text file for each book, quote images, or both. Works offline. Sends no data. It goes online only when you select **Check for Updates**.
 
-Works offline. Sends no data. It goes online only when you select **Check for Updates**.
-
-Available for Windows, macOS (Apple Silicon) and Linux.
-
-_**Disclaimer:** Most if not all of the code here has been written in Python with the help of AI._
+**Contents:** [What it does](#what-it-does) · [Privacy](#privacy) · [Download](#download) · [How to use](#how-to-use) · [For developers](#for-developers)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/main-dark.png">
@@ -15,9 +11,9 @@ _**Disclaimer:** Most if not all of the code here has been written in Python wit
 
 ---
 
-## What Klippings Does
+## What it does
 
-Your Kindle records every highlight from every book in one file, `My Clippings.txt`. The file gets longer each time you highlight something. Klippings sorts it into one set of files per book.
+Your Kindle records every highlight from every book in one file, `My Clippings.txt`. The file gets longer each time you highlight something. Klippings sorts it into one set of files per book. Your `My Clippings.txt` file is not changed.
 
 ```
 My Clippings.txt   →   Walden.txt
@@ -25,13 +21,41 @@ My Clippings.txt   →   Walden.txt
                        Moby-Dick.txt
 ```
 
-- **Text files:** one `.txt` file per book, with or without the page and location of each highlight.
-- **Quote images:** one 1080 x 1350 px image per highlight, in a folder named after the book.
-- **Several files at once:** open clippings from several Kindles or dated backups. Klippings combines them into one library.
+### Text files for each book
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/images-and-simple-dark.png">
+  <img src="assets/screenshots/images-and-simple-light.png" alt="Klippings with Quote images selected and Include page & location cleared: the font menu shows Vollkorn and the preview shows the highlights without page and location" width="840">
+</picture>
+
+Every book gets its own text file, ready for your notes. Keep the page and location of each highlight, or leave them out for a clean copy.
+
+### Quote images
+
+<img src="assets/screenshots/quote-image.webp" alt="A 1080 x 1350 quote image of a highlight from Walden, with the book and author line at the bottom" width="360">
+
+Each highlight becomes a 1080 x 1350 px image, ready to share. Long highlights are split across several images.
+
+### Several files at once
+
+Open clippings from several Kindles, or dated backups of one Kindle. Klippings combines them into one library and leaves out the copies.
+
+---
+
+## Privacy
+
+- Klippings works offline. Everything it does with your clippings happens on your computer.
+- It has no telemetry, analytics, crash reports or tracking.
+- Your text files and quote images are saved only in the folder you choose.
+- Your settings (the last folder you used) are saved in a `Klippings-data` folder next to the app. Klippings creates it the first time you choose a **Save to** folder. Nothing is saved anywhere else, so to move Klippings to another folder or computer, move the app and `Klippings-data` together.
+- If Klippings can't write next to itself, it tells you once and does not save your settings. Your exports are not affected.
+- The app makes one network connection, and only when you select **Check for Updates**. It sends one request to GitHub (`api.github.com`) to read the latest release number. It sends no data about you or your files, and it keeps nothing. GitHub sees your IP address, as with any web request.
 
 ---
 
 ## Download
+
+Klippings runs on Windows (x64), macOS on Apple Silicon, and Linux (x64).
 
 1. Open the [Releases](https://github.com/TariqMK/Klippings/releases/latest) page.
 2. Download the file for your computer:
@@ -42,18 +66,34 @@ My Clippings.txt   →   Walden.txt
 | macOS (Apple Silicon) | `Klippings-<version>-macos-arm64.zip` |
 | Linux (x64) | `Klippings-<version>-linux-x64.tar.gz` |
 
+> [!IMPORTANT]
+> On macOS, move **Klippings** out of the `Downloads` folder before you open it, for example to `Applications` or `Documents`. If it runs from where it was downloaded, macOS can stop it from saving its settings.
+
 3. Start Klippings:
    - **Windows:** run the `.exe` file. No installation is necessary.
-   - **macOS:** open the `.zip` file, then open **Klippings**.
+   - **macOS:** open the `.zip` file, then open **Klippings**. The first time, follow [Opening on macOS](#opening-on-macos).
    - **Linux:** extract the `.tar.gz` file, then run `Klippings`.
 
-**Note:** The macOS app is unsigned. The first time you open it, macOS blocks it. To allow it, go to **System Settings > Privacy & Security** and select **Open Anyway**.
+### Opening on macOS
 
-**Note:** On macOS, move **Klippings** out of the `Downloads` folder before you open it, for example to `Applications` or `Documents`. If it runs from where it was downloaded, macOS can stop it from saving its settings.
+Klippings isn't notarised by Apple, so macOS shows a warning the first time you open it. This is expected and doesn't mean the app is harmful.
+
+1. Open Klippings and click **Done** on the warning.
+2. Open **System Settings → Privacy & Security**, scroll down to the message saying "Klippings" was blocked, and click **Open Anyway**.
+3. Enter your password, then click **Open** on the next prompt. You only need to do this once.
+
+<details>
+<summary>If you use Terminal</summary>
+
+You can run this instead:
+
+    xattr -dr com.apple.quarantine "/Applications/Klippings.app"
+
+</details>
 
 ---
 
-## How to Use Klippings
+## How to use
 
 1. Connect your Kindle to your computer. Find `My Clippings.txt` in the `documents` folder on the Kindle.
 2. Drop `My Clippings.txt` on the Klippings window, or select **Choose File**. To open several files, select or drop them together.
@@ -63,16 +103,14 @@ My Clippings.txt   →   Walden.txt
    - **Text files**, with or without **Include page & location**.
    - **Quote images**, with a **Font**.
 6. Under **Save to**, select the button and choose a folder.
+
+> [!WARNING]
+> If a file with the same name is already in the folder, Klippings asks before it replaces it. A replaced file can't be recovered.
+
 7. Select **Export**. The button shows how many books it will export, for example **Export 6 Books**.
 8. After the export, select **Show in Folder** to see the files.
 
 To open different files, select **Choose Another File**. To close the open files, select **Clear Files**. Your export choices stay as they are.
-
-**Note:** If a file with the same name is already in the folder, Klippings asks before it replaces it. A replaced file can't be recovered.
-
----
-
-## Export Options
 
 ### Text files
 
@@ -110,7 +148,7 @@ Henry David Thoreau
 2. Our life is frittered away by detail. Simplify, simplify.
 ```
 
-### Quote images
+### Quote image layout
 
 Klippings saves each highlight as a WebP image, in a folder named after the book.
 
@@ -121,8 +159,6 @@ Walden/
 └── Highlight_0002_02.webp
 ```
 
-<img src="assets/screenshots/quote-image.webp" alt="A 1080 x 1350 quote image of a highlight from Walden, with the book and author line at the bottom" width="360">
-
 - Every image is 1080 x 1350 px, black text on white.
 - The highlight is size 40, with line spacing 15, wrapped at 43 characters.
 - The book and author line is size 27, at the bottom of the image.
@@ -132,14 +168,7 @@ Walden/
 
 To export only images, clear **Text files** and tick **Quote images**.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/images-and-simple-dark.png">
-  <img src="assets/screenshots/images-and-simple-light.png" alt="Klippings with Quote images selected and Include page & location cleared: the font menu shows Vollkorn and the preview shows the highlights without page and location" width="840">
-</picture>
-
----
-
-## Opening Several Files
+### Opening several files
 
 You can open clippings files from different Kindles, or dated backups of one Kindle, together.
 
@@ -150,9 +179,7 @@ You can open clippings files from different Kindles, or dated backups of one Kin
 
 With one file open, highlights stay in the order of the file.
 
----
-
-## What Klippings Leaves Out
+### What Klippings leaves out
 
 Klippings exports highlights only. It leaves out these entries and shows how many of each it skipped:
 
@@ -165,9 +192,7 @@ Klippings exports highlights only. It leaves out these entries and shows how man
 
 Select **Show Details** in the status bar to see the counts.
 
----
-
-## Keyboard Shortcuts
+### Keyboard shortcuts
 
 On macOS, use `Cmd` in place of `Ctrl`.
 
@@ -181,29 +206,14 @@ On macOS, use `Cmd` in place of `Ctrl`.
 
 On macOS, **Open…**, **Export** and **Clear Files** are also in the **File** menu.
 
----
-
-## Check for Updates
+### Check for updates
 
 1. Select **Check for Updates**, next to the version number at the top of the window.
 2. If a newer version is available, select **Yes** to open its download page in your browser.
 
 Klippings does not download or install updates itself.
 
----
-
-## Privacy
-
-- Klippings works offline. Everything it does with your clippings happens on your computer.
-- It has no telemetry, analytics, crash reports or tracking.
-- Your text files and quote images are saved only in the folder you choose.
-- Your settings (the last folder you used) are saved in a `Klippings-data` folder next to the app. Klippings creates it the first time you choose a **Save to** folder. Nothing is saved anywhere else, so to move Klippings to another folder or computer, move the app and `Klippings-data` together.
-- If Klippings can't write next to itself, it tells you once and does not save your settings. Your exports are not affected.
-- The app makes one network connection, and only when you select **Check for Updates**. It sends one request to `api.github.com` to read the latest release number. It sends no data about you or your files, and it keeps nothing. GitHub sees your IP address, as with any web request.
-
----
-
-## Known Issues
+### Known issues
 
 - Amazon has changed the format of `My Clippings.txt` over the years. The common English formats are supported. Files from Kindles set to other languages are not supported yet, and their entries are counted as unrecognised. If you have a problem, please [raise an issue](https://github.com/TariqMK/Klippings/issues).
 - A book with no author whose title ends in brackets, such as `Book (Vol 1)`, shows `Vol 1` as its author. The file format does not tell the two apart.
@@ -212,7 +222,12 @@ Klippings does not download or install updates itself.
 
 ---
 
-## Run From Source
+## For developers
+
+Building the app yourself or changing it? Everything you need is below.
+
+<details>
+<summary><strong>Run from source</strong></summary>
 
 Klippings needs Python 3.8 or later.
 
@@ -228,9 +243,15 @@ pip install .
 klippings
 ```
 
-**Note:** From source, `Klippings-data` goes in the folder you start `klippings` from. With `python -m klippings` from a checkout, it goes in the repository root. Git ignores it.
+> [!NOTE]
+> From source, `Klippings-data` goes in the folder you start `klippings` from. With `python -m klippings` from a checkout, it goes in the repository root. Git ignores it.
 
-**Note:** From source, the app shows the development version, `v0.0.0.dev0`. Only release builds show a real version number. **Check for Updates** does not go online in a development build.
+From source, the app shows the development version, `v0.0.0.dev0`. Only release builds show a real version number. **Check for Updates** does not go online in a development build.
+
+</details>
+
+<details>
+<summary><strong>Run the tests</strong></summary>
 
 To run the tests:
 
@@ -239,7 +260,22 @@ pip install ".[dev]"
 pytest
 ```
 
-### Add a font for quote images
+To check that the app has everything it needs, run the self-test. It prints `Klippings v0.0.0.dev0` and exits with code 0, or it lists what is missing and exits with code 1:
+
+```
+python -m klippings --self-test
+```
+
+To check the main features on made-up sample clippings, run the end-to-end check. It works only in a new, empty temporary folder. Add `--app` and the path to a built app to run that app's self-test as well:
+
+```
+python scripts/check_e2e.py
+```
+
+</details>
+
+<details>
+<summary><strong>Add a font for quote images</strong></summary>
 
 1. Check that the font's licence allows it to be built into an app.
 2. Put the `.ttf` or `.otf` file in `klippings/fonts`.
@@ -247,13 +283,15 @@ pytest
 
 The font appears in the **Font** menu. Vollkorn and Platypi are already there, with their licences.
 
----
+</details>
 
-## Update the Screenshots and Brand Images
+<details>
+<summary><strong>Update the screenshots</strong></summary>
 
 The screenshots come from the real app, with sample clippings from public-domain books. Retake them after a change to the interface.
 
-**Note:** Both scripts need Windows. The screenshot script also needs a screen of at least 2240 x 1380 px. Do not cover the Klippings window while it runs.
+> [!IMPORTANT]
+> Both scripts need Windows. The screenshot script also needs a screen of at least 2240 x 1380 px. Do not cover the Klippings window while it runs.
 
 1. Set `VERSION` at the top of `assets/make_screenshots.py` to the newest release tag.
 2. From the repository root, run:
@@ -272,9 +310,10 @@ python assets/make_assets.py
 
 The script also copies the site icons and social card into `docs/`.
 
----
+</details>
 
-## Creating a Release
+<details>
+<summary><strong>Creating a Release</strong></summary>
 
 1. Open the repository's **Actions** tab and select the **Release** workflow.
 2. Run it on `main`, and choose:
@@ -283,4 +322,12 @@ The script also copies the site icons and social card into `docs/`.
 
 The new version comes from the highest existing tag or release, including drafts. The app shows it, and the release is tagged with it. The workflow does not commit anything to `main`, so your local copy stays level with GitHub.
 
+The workflow runs the tests first. It then starts each finished build once with `--self-test`. If the tests or a self-test fail, the workflow makes no tag and no release.
+
 To add release notes, edit the release on GitHub. The workflow adds only a link to the full list of changes.
+
+</details>
+
+**Licence:** Klippings is free software under the [GNU General Public License v3.0](LICENSE). The bundled fonts, Vollkorn and Platypi, keep their own SIL Open Font License, in `klippings/fonts`.
+
+_**Disclaimer:** Most if not all of the code here has been written in Python with the help of AI._

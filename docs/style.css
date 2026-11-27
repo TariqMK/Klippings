@@ -376,7 +376,7 @@ code { font: 400 13px var(--mono); color: var(--text); background: var(--raised)
 .footer { border-top: 1px solid var(--hair); }
 .footer-inner { max-width: var(--page); margin: 0 auto; padding: 32px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; font-size: 14px; }
 .footer-line { color: var(--muted); }
-.footer-links { margin-left: auto; display: flex; gap: 20px; color: var(--text-2); }
+.footer-links { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--text-2); }
 .footer-links a:hover { color: var(--text); }
 
 /* Entrance: one short fade and rise */
